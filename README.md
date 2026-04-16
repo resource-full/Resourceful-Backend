@@ -31,7 +31,7 @@ A production-ready backend for a career resource marketplace.
 
 ---
 
-## ** Authentication** (`/auth`)
+## **Authentication** (`/auth`)
 
 | Method | Endpoint         | Description              | Auth Required | Body                        |
 | ------ | ---------------- | ------------------------ | ------------- | --------------------------- |
@@ -41,7 +41,7 @@ A production-ready backend for a career resource marketplace.
 
 ---
 
-## ** Users** (`/users`)
+## **Users** (`/users`)
 
 | Method | Endpoint                  | Description                    | Auth Required | Body                                             |
 | ------ | ------------------------- | ------------------------------ | ------------- | ------------------------------------------------ |
@@ -54,7 +54,7 @@ A production-ready backend for a career resource marketplace.
 
 ---
 
-## ** Resources** (`/resources`)
+## **Resources** (`/resources`)
 
 | Method | Endpoint                       | Description                   | Auth Required            | Body                                                                        |
 | ------ | ------------------------------ | ----------------------------- | ------------------------ | --------------------------------------------------------------------------- |
@@ -68,7 +68,7 @@ A production-ready backend for a career resource marketplace.
 
 ---
 
-## ** Pathways** (`/pathways`)
+## **Pathways** (`/pathways`)
 
 | Method | Endpoint            | Description                       | Auth Required    | Body                                                                |
 | ------ | ------------------- | --------------------------------- | ---------------- | ------------------------------------------------------------------- |
@@ -81,7 +81,7 @@ A production-ready backend for a career resource marketplace.
 
 ---
 
-## ** Interactions** (`/interactions`)
+## **Interactions** (`/interactions`)
 
 | Method | Endpoint                                       | Description                    | Auth Required    | Body                           |
 | ------ | ---------------------------------------------- | ------------------------------ | ---------------- | ------------------------------ |
@@ -95,7 +95,7 @@ A production-ready backend for a career resource marketplace.
 
 ---
 
-## ** System**
+## **System**
 
 | Method | Endpoint  | Description             | Auth Required |
 | ------ | --------- | ----------------------- | ------------- |
@@ -103,7 +103,7 @@ A production-ready backend for a career resource marketplace.
 
 ---
 
-## ** Authentication Header**
+## **Authentication Header**
 
 For protected routes, include:
 
@@ -111,7 +111,7 @@ For protected routes, include:
 Authorization: Bearer <your_jwt_token>
 ```
 
-## ** Query Parameters Common Options**
+## **Query Parameters Common Options**
 
 ### Pagination (all list endpoints)
 
@@ -139,7 +139,7 @@ Authorization: Bearer <your_jwt_token>
 
 ---
 
-## ** Example Requests**
+## **Example Requests**
 
 ### Register User
 
@@ -191,7 +191,7 @@ Content-Type: application/json
 
 ---
 
-## ** Response Format**
+## **Response Format**
 
 ### Success Response
 
