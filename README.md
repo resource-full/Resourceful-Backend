@@ -2,16 +2,6 @@
 
 A production-ready backend for a career resource marketplace.
 
-## Features
-
-- 🔐 JWT Authentication
-- 📚 Resource Management
-- 🗺️ Career Pathways
-- 💬 Social Interactions (Likes, Comments, Saves)
-- 👥 User Following System
-- 📊 Resource Confidence Scoring
-- 🔍 Advanced Search & Filtering
-
 ## Tech Stack
 
 - Node.js & Express.js
@@ -34,3 +24,221 @@ A production-ready backend for a career resource marketplace.
    ```bash
    npm install
    ```
+
+## **ResourceFull API Endpoints**
+
+### **Base URL:** `http://localhost:5000/api`
+
+---
+
+## ** Authentication** (`/auth`)
+
+| Method | Endpoint         | Description              | Auth Required | Body                        |
+| ------ | ---------------- | ------------------------ | ------------- | --------------------------- |
+| POST   | `/auth/register` | Register new user        | No            | `{ name, email, password }` |
+| POST   | `/auth/login`    | Login user               | No            | `{ email, password }`       |
+| GET    | `/auth/me`       | Get current user profile | Yes           | -                           |
+
+---
+
+## ** Users** (`/users`)
+
+| Method | Endpoint                  | Description                    | Auth Required | Body                                             |
+| ------ | ------------------------- | ------------------------------ | ------------- | ------------------------------------------------ |
+| GET    | `/users/profile`          | Get authenticated user profile | Yes           | -                                                |
+| PUT    | `/users/profile`          | Update user profile            | Yes           | `{ name, location, currentCareer, skills, bio }` |
+| GET    | `/users/:userId`          | Get public profile of any user | Yes           | -                                                |
+| POST   | `/users/follow/:userId`   | Follow a user                  | Yes           | -                                                |
+| POST   | `/users/unfollow/:userId` | Unfollow a user                | Yes           | -                                                |
+| GET    | `/users/search?q=query`   | Search users by name/skills    | Yes           | Query params                                     |
+
+---
+
+## ** Resources** (`/resources`)
+
+| Method | Endpoint                       | Description                   | Auth Required            | Body                                                                        |
+| ------ | ------------------------------ | ----------------------------- | ------------------------ | --------------------------------------------------------------------------- |
+| POST   | `/resources`                   | Create new resource           | Yes                      | `{ title, description, link, category, country, tags }`                     |
+| GET    | `/resources`                   | Get all resources (paginated) | No                       | Query: `?page=1&limit=10&category=course&search=node&sort=-confidenceScore` |
+| GET    | `/resources/:id`               | Get single resource details   | No                       | -                                                                           |
+| PUT    | `/resources/:id`               | Update resource               | Yes (owner/collaborator) | `{ title, description, link, category }`                                    |
+| DELETE | `/resources/:id`               | Delete resource               | Yes (owner only)         | -                                                                           |
+| POST   | `/resources/:id/collaborators` | Add collaborator to resource  | Yes (owner only)         | `{ email }`                                                                 |
+| POST   | `/resources/:id/rate`          | Rate a resource (1-5)         | Yes                      | `{ rating }`                                                                |
+
+---
+
+## ** Pathways** (`/pathways`)
+
+| Method | Endpoint            | Description                       | Auth Required    | Body                                                                |
+| ------ | ------------------- | --------------------------------- | ---------------- | ------------------------------------------------------------------- |
+| POST   | `/pathways`         | Create new pathway                | Yes              | `{ title, description, category, difficulty, resources }`           |
+| GET    | `/pathways`         | Get all pathways (paginated)      | No               | Query: `?page=1&limit=10&category=skill-development&search=backend` |
+| GET    | `/pathways/:id`     | Get single pathway details        | No               | -                                                                   |
+| GET    | `/pathways/user/my` | Get authenticated user's pathways | Yes              | -                                                                   |
+| PUT    | `/pathways/:id`     | Update pathway                    | Yes (owner only) | `{ title, description, resources }`                                 |
+| DELETE | `/pathways/:id`     | Delete pathway                    | Yes (owner only) | -                                                                   |
+
+---
+
+## ** Interactions** (`/interactions`)
+
+| Method | Endpoint                                       | Description                    | Auth Required    | Body                           |
+| ------ | ---------------------------------------------- | ------------------------------ | ---------------- | ------------------------------ |
+| POST   | `/interactions/resources/:resourceId/like`     | Like/unlike resource           | Yes              | -                              |
+| POST   | `/interactions/resources/:resourceId/save`     | Save/unsave resource           | Yes              | -                              |
+| POST   | `/interactions/resources/:resourceId/comments` | Add comment on resource        | Yes              | `{ comment }`                  |
+| GET    | `/interactions/resources/:resourceId/comments` | Get resource comments          | No               | Query: `?page=1&limit=20`      |
+| GET    | `/interactions/resources/:resourceId/stats`    | Get resource interaction stats | No               | -                              |
+| DELETE | `/interactions/comments/:commentId`            | Delete a comment               | Yes (owner only) | -                              |
+| GET    | `/interactions/user/me`                        | Get user's interactions        | Yes              | Query: `?type=like` (optional) |
+
+---
+
+## ** System**
+
+| Method | Endpoint  | Description             | Auth Required |
+| ------ | --------- | ----------------------- | ------------- |
+| GET    | `/health` | Health check (base URL) | No            |
+
+---
+
+## ** Authentication Header**
+
+For protected routes, include:
+
+```
+Authorization: Bearer <your_jwt_token>
+```
+
+## ** Query Parameters Common Options**
+
+### Pagination (all list endpoints)
+
+- `page`: Page number (default: 1)
+- `limit`: Items per page (default: 10)
+
+### Filtering (resources)
+
+- `category`: ebook, course, video, article, tool, template, podcast, community
+- `country`: Country name
+- `verificationStatus`: true/false
+- `owner`: User ID
+
+### Filtering (pathways)
+
+- `category`: career-change, skill-development, interview-prep, networking, personal-branding
+- `difficulty`: beginner, intermediate, advanced
+- `author`: User ID
+
+### Sorting
+
+- `sort`: Field to sort by (prefix with `-` for descending)
+  - Resources: `-confidenceScore`, `-createdAt`, `peerRatings`
+  - Pathways: `-createdAt`, `-enrolledCount`
+
+---
+
+## ** Example Requests**
+
+### Register User
+
+```bash
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Jane Smith",
+  "email": "jane@example.com",
+  "password": "secure123"
+}
+```
+
+### Create Resource
+
+```bash
+POST /api/resources
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "title": "AWS Certified Solutions Architect",
+  "description": "Complete AWS certification prep course",
+  "link": "https://example.com/aws-course",
+  "category": "course",
+  "country": "USA",
+  "tags": ["aws", "cloud", "certification"]
+}
+```
+
+### Search Resources
+
+```bash
+GET /api/resources?search=javascript&category=course&sort=-confidenceScore&page=1&limit=20
+```
+
+### Add Comment
+
+```bash
+POST /api/interactions/resources/69e115a235a1b4e0a31c0f6a/comments
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "comment": "This resource helped me land my first dev job!"
+}
+```
+
+---
+
+## ** Response Format**
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "data": {
+    // Response data
+  }
+}
+```
+
+### Paginated Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "resources": [...],
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 45,
+      "pages": 5
+    }
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "success": false,
+  "message": "Error description",
+  "stack": "..." // Only in development
+}
+```
+
+---
+
+## ** HTTP Status Codes**
+
+- `200` - Success
+- `201` - Created
+- `400` - Bad Request
+- `401` - Unauthorized
+- `403` - Forbidden
+- `404` - Not Found
+- `500` - Server Error
