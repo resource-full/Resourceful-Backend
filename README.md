@@ -24,6 +24,11 @@ A production-ready backend for a career resource marketplace.
    ```bash
    npm install
    ```
+3. Start the server
+
+```bash
+npm run dev
+```
 
 ## **ResourceFull API Endpoints**
 
