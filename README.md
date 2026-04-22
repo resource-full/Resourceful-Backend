@@ -30,6 +30,7 @@ A production-ready backend for a career resource marketplace.
 npm run dev
 ```
 
+
 ## **ResourceFull API Endpoints**
 
 ### **Base URL:** `http://localhost:5000/api`
@@ -38,11 +39,16 @@ npm run dev
 
 ## **Authentication** (`/auth`)
 
-| Method | Endpoint         | Description              | Auth Required | Body                        |
-| ------ | ---------------- | ------------------------ | ------------- | --------------------------- |
-| POST   | `/auth/register` | Register new user        | No            | `{ name, email, password }` |
-| POST   | `/auth/login`    | Login user               | No            | `{ email, password }`       |
-| GET    | `/auth/me`       | Get current user profile | Yes           | -                           |
+| Method | Endpoint                 | Description                 | Auth Required | Body                                             |
+| ------ | ------------------------ | --------------------------- | ------------- | ------------------------------------------------ |
+| POST   | `/auth/register`         | Register new user           | No            | `{ name, email, password }`                      |
+| POST   | `/auth/login`            | Login user                  | No            | `{ email, password }`                            |
+| POST   | `/auth/refresh-token`    | Get new access token        | No            | `{ refreshToken }`                               |
+| POST   | `/auth/forgot-password`  | Request password reset      | No            | `{ email }`                                      |
+| POST   | `/auth/reset-password`   | Reset password with token   | No            | `{ token, newPassword }`                         |
+| POST   | `/auth/logout`           | Logout user                 | Yes           | -                                                |
+| POST   | `/auth/change-password`  | Change password             | Yes           | `{ currentPassword, newPassword }`               |
+| GET    | `/auth/me`               | Get current user profile    | Yes           | -                                                |
 
 ---
 
@@ -113,8 +119,12 @@ npm run dev
 For protected routes, include:
 
 ```
-Authorization: Bearer <your_jwt_token>
+Authorization: Bearer <your_access_token>
 ```
+
+**Note:** After login, use `accessToken` for API calls. When it expires, use `/auth/refresh-token` with your `refreshToken` to get a new `accessToken`.
+
+---
 
 ## **Query Parameters Common Options**
 
@@ -159,11 +169,70 @@ Content-Type: application/json
 }
 ```
 
+### Login (Returns both tokens)
+
+```bash
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "jane@example.com",
+  "password": "secure123"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "user": {...},
+    "accessToken": "eyJ...",
+    "refreshToken": "eyJ..."
+  }
+}
+```
+
+### Refresh Access Token
+
+```bash
+POST /api/auth/refresh-token
+Content-Type: application/json
+
+{
+  "refreshToken": "your_refresh_token_here"
+}
+```
+
+### Change Password
+
+```bash
+POST /api/auth/change-password
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "currentPassword": "old_password",
+  "newPassword": "new_secure_password"
+}
+```
+
+### Forgot Password
+
+```bash
+POST /api/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "user@example.com"
+}
+```
+
 ### Create Resource
 
 ```bash
 POST /api/resources
-Authorization: Bearer <token>
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
@@ -186,7 +255,7 @@ GET /api/resources?search=javascript&category=course&sort=-confidenceScore&page=
 
 ```bash
 POST /api/interactions/resources/69e115a235a1b4e0a31c0f6a/comments
-Authorization: Bearer <token>
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
@@ -238,7 +307,7 @@ Content-Type: application/json
 
 ---
 
-## ** HTTP Status Codes**
+## **HTTP Status Codes**
 
 - `200` - Success
 - `201` - Created
