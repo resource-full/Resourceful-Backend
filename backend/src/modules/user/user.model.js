@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const moment = require('moment-timezone');
 
 const userSchema = new mongoose.Schema({
@@ -69,6 +70,47 @@ const userSchema = new mongoose.Schema({
   avatar: {
     type: String,
     default: ''
+  },
+  
+  // Security fields
+  refreshToken: {
+    type: String,
+    select: false
+  },
+  refreshTokenExpire: {
+    type: Date,
+    select: false
+  },
+  passwordResetToken: {
+    type: String,
+    select: false
+  },
+  passwordResetExpire: {
+    type: Date,
+    select: false
+  },
+  passwordChangedAt: {
+    type: Date,
+    select: false
+  },
+  
+  // Account status
+  isActive: {
+    type: Boolean,
+    default: true,
+    select: false
+  },
+  lastLogin: {
+    type: Date
+  },
+  loginAttempts: {
+    type: Number,
+    default: 0,
+    select: false
+  },
+  lockUntil: {
+    type: Date,
+    select: false
   }
 }, {
   timestamps: {
@@ -84,6 +126,12 @@ userSchema.pre('save', async function(next) {
   
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
+  
+  // Set password changed timestamp
+  if (!this.isNew) {
+    this.passwordChangedAt = moment().tz('Africa/Lagos').toDate();
+  }
+  
   next();
 });
 
@@ -92,7 +140,45 @@ userSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Index for search optimization
+// Check if password was changed after JWT issued
+userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
+  if (this.passwordChangedAt) {
+    const changedTimestamp = parseInt(
+      this.passwordChangedAt.getTime() / 1000,
+      10
+    );
+    return JWTTimestamp < changedTimestamp;
+  }
+  return false;
+};
+
+userSchema.methods.incLoginAttempts = async function() {
+  if (this.lockUntil && this.lockUntil < Date.now()) {
+    return this.updateOne({
+      $set: { loginAttempts: 1 },
+      $unset: { lockUntil: 1 }
+    });
+  }
+  
+  const updates = { $inc: { loginAttempts: 1 } };
+  
+  // Lock account if too many attempts
+  if (this.loginAttempts + 1 >= 5 && !this.lockUntil) {
+    updates.$set = { 
+      lockUntil: moment().tz('Africa/Lagos').add(1, 'hour').toDate() 
+    };
+  }
+  
+  return this.updateOne(updates);
+};
+
+// Check if account is locked
+userSchema.methods.isLocked = function() {
+  return !!(this.lockUntil && this.lockUntil > Date.now());
+};
+
 userSchema.index({ name: 'text', email: 'text', skills: 'text' });
+userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('User', userSchema);

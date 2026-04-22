@@ -4,8 +4,13 @@ const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
   
-  // Log error for debugging
-  console.error(err);
+  if (NODE_ENV === 'development') {
+    console.error(`${err.statusCode || 500} - ${err.message}`);
+  } else {
+    if (!err.statusCode || err.statusCode >= 500) {
+      console.error(`ERROR: ${err.message}`);
+    }
+  }
   
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {
@@ -23,6 +28,15 @@ const errorHandler = (err, req, res, next) => {
   if (err.name === 'ValidationError') {
     const message = Object.values(err.errors).map(val => val.message).join(', ');
     error = { message, statusCode: 400 };
+  }
+  
+  // JWT errors
+  if (err.name === 'JsonWebTokenError') {
+    error = { message: 'Invalid token', statusCode: 401 };
+  }
+  
+  if (err.name === 'TokenExpiredError') {
+    error = { message: 'Token expired', statusCode: 401 };
   }
   
   res.status(error.statusCode || 500).json({
