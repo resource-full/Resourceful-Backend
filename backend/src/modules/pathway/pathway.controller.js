@@ -12,7 +12,7 @@ class PathwayController {
   });
   
   getPathways = asyncHandler(async (req, res) => {
-    const result = await pathwayService.getPathways(req.query);
+    const result = await pathwayService.getPathways(req.query, req.user?._id);
     
     res.status(200).json({
       success: true,
@@ -54,14 +54,70 @@ class PathwayController {
     });
   });
   
-  getUserPathways = asyncHandler(async (req, res) => {
-    const pathways = await pathwayService.getUserPathways(req.user._id);
+  changePathwayStatus = asyncHandler(async (req, res) => {
+    const { status } = req.body;
+    const pathway = await pathwayService.changePathwayStatus(
+      req.params.id,
+      req.user._id,
+      status
+    );
     
     res.status(200).json({
       success: true,
-      data: pathways
+      data: pathway
     });
   });
+  
+  getUserPathways = asyncHandler(async (req, res) => {
+    const result = await pathwayService.getUserPathways(req.user._id, req.query);
+    
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  });
+  
+  addBlock = asyncHandler(async (req, res) => {
+    const pathway = await pathwayService.addBlock(
+      req.params.id,
+      req.user._id,
+      req.body
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: pathway
+    });
+  });
+  
+  removeBlock = asyncHandler(async (req, res) => {
+    const { blockId } = req.params;
+    const pathway = await pathwayService.removeBlock(
+      req.params.id,
+      req.user._id,
+      blockId
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: pathway
+    });
+  });
+  
+  reorderBlocks = asyncHandler(async (req, res) => {
+    const { blockOrders } = req.body;
+    const pathway = await pathwayService.reorderBlocks(
+      req.params.id,
+      req.user._id,
+      blockOrders
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: pathway
+    });
+  });
+  
 }
 
 module.exports = new PathwayController();

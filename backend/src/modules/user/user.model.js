@@ -178,7 +178,6 @@ userSchema.methods.isLocked = function() {
 };
 
 userSchema.index({ name: 'text', email: 'text', skills: 'text' });
-userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('User', userSchema);
