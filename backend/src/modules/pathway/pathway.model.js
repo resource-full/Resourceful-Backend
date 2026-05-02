@@ -49,7 +49,7 @@ const pathwaySchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  applicationLocation: {
+  applicableLocation: {
     type: String,
     required: [true, 'Please select application location'],
     enum: [
@@ -182,7 +182,7 @@ pathwaySchema.index({ status: 1, isDeleted: 1 });
 pathwaySchema.index({ author: 1, status: 1 });
 pathwaySchema.index({ industry: 1 });
 pathwaySchema.index({ experience: 1 });
-pathwaySchema.index({ applicationLocation: 1 });
+pathwaySchema.index({ applicableLocation: 1 });
 pathwaySchema.index({ isFree: 1, price: 1 });
 pathwaySchema.index({ hub: 1 });
 pathwaySchema.index({ createdAt: -1 });

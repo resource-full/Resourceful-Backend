@@ -17,30 +17,58 @@ const hubSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  coverImage: {
+  applicableLocation: {
     type: String,
-    default: ''
+    required: [true, 'Please select application location'],
+    enum: [
+      'Worldwide', 'Afghanistan', 'Albania', 'Algeria', 'Argentina', 'Australia',
+      'Austria', 'Bangladesh', 'Belgium', 'Brazil', 'Canada', 'Chile', 'China',
+      'Colombia', 'Croatia', 'Denmark', 'Egypt', 'Ethiopia', 'Finland', 'France',
+      'Germany', 'Ghana', 'Greece', 'Hungary', 'Iceland', 'India', 'Indonesia',
+      'Iran', 'Iraq', 'Ireland', 'Israel', 'Italy', 'Jamaica', 'Japan', 'Jordan',
+      'Kenya', 'Kuwait', 'Lebanon', 'Malaysia', 'Mexico', 'Morocco', 'Nepal',
+      'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan',
+      'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda',
+      'Saudi Arabia', 'Senegal', 'Singapore', 'South Africa', 'South Korea',
+      'Spain', 'Sri Lanka', 'Sweden', 'Switzerland', 'Tanzania', 'Thailand',
+      'Turkey', 'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom',
+      'United States', 'Vietnam', 'Zambia', 'Zimbabwe'
+    ]
   },
-  isPublic: {
-    type: Boolean,
-    default: false
+  experience: {
+    type: String,
+    required: [true, 'Please select experience level'],
+    enum: [
+      'Undergraduate',
+      'Recent graduate (0-2 years)',
+      'Experienced level (3-6 years)',
+      'Professional (above 6 years)'
+    ]
+  },
+  industry: {
+    type: String,
+    required: [true, 'Please select industry'],
+    enum: ['Law', 'Agriculture', 'Nursing', 'Medicine', 'Software Development']
   },
   resources: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Resource'
   }],
-  resourceCount: {
-    type: Number,
-    default: 0
-  },
-  followers: [{
+  pathways: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'Pathway'
   }],
-  followerCount: {
-    type: Number,
-    default: 0
-  }
+  status: {
+    type: String,
+    enum: ['draft', 'public'],
+    default: 'draft'
+  },
+  publishedAt: Date,
+  isDeleted: {
+    type: Boolean,
+    default: false
+  },
+  deletedAt: Date
 }, {
   timestamps: {
     currentTime: () => moment().tz('Africa/Lagos').toDate()
@@ -49,7 +77,10 @@ const hubSchema = new mongoose.Schema({
 
 hubSchema.index({ owner: 1 });
 hubSchema.index({ name: 'text', description: 'text' });
-hubSchema.index({ isPublic: 1 });
-hubSchema.index({ followerCount: -1 });
+hubSchema.index({ status: 1, isDeleted: 1 });
+hubSchema.index({ industry: 1 });
+hubSchema.index({ experience: 1 });
+hubSchema.index({ applicableLocation: 1 });
+hubSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('Hub', hubSchema);

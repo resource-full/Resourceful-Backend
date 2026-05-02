@@ -88,7 +88,7 @@ class ResourceService {
       status,
       industry,
       experience,
-      applicationLocation,
+      applicableLocation,
       isFree,
       minPrice,
       maxPrice,
@@ -116,7 +116,7 @@ class ResourceService {
     if (status) filter.status = status;
     if (industry) filter.industry = industry;
     if (experience) filter.experience = experience;
-    if (applicationLocation) filter.applicationLocation = applicationLocation;
+    if (applicableLocation) filter.applicableLocation = applicableLocation;
     if (isFree !== undefined) filter.isFree = isFree === 'true';
     if (hub) filter.hub = hub;
     if (owner) filter.owner = owner;

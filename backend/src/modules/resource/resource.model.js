@@ -83,7 +83,7 @@ const resourceSchema = new mongoose.Schema({
   }],
   
   // Categorization
-  applicationLocation: {
+  applicableLocation: {
     type: String,
     required: [true, 'Please select application location'],
     enum: [
@@ -332,7 +332,7 @@ resourceSchema.index({ name: 'text', description: 'text', tags: 'text' });
 resourceSchema.index({ status: 1, isDeleted: 1 });
 resourceSchema.index({ industry: 1 });
 resourceSchema.index({ experience: 1 });
-resourceSchema.index({ applicationLocation: 1 });
+resourceSchema.index({ applicableLocation: 1 });
 resourceSchema.index({ isFree: 1, price: 1 });
 resourceSchema.index({ confidenceScore: -1 });
 resourceSchema.index({ owner: 1, status: 1 });

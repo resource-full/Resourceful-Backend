@@ -65,7 +65,7 @@ class PathwayService {
       limit = 10,
       industry,
       experience,
-      applicationLocation,
+      applicableLocation,
       isFree,
       minPrice,
       maxPrice,
@@ -92,7 +92,7 @@ class PathwayService {
     if (status) filter.status = status;
     if (industry) filter.industry = industry;
     if (experience) filter.experience = experience;
-    if (applicationLocation) filter.applicationLocation = applicationLocation;
+    if (applicableLocation) filter.applicableLocation = applicableLocation;
     if (isFree !== undefined) filter.isFree = isFree === 'true';
     if (hub) filter.hub = hub;
     if (author) filter.author = author;
@@ -132,7 +132,7 @@ class PathwayService {
   async getPathwayById(pathwayId, userId = null) {
     const pathway = await Pathway.findById(pathwayId)
       .populate('author', 'name email avatar bio')
-      .populate('blocks.resource', 'name description coverPhoto industry experience applicationLocation isFree price currency peerRatings confidenceScore')
+      .populate('blocks.resource', 'name description coverPhoto industry experience applicableLocation isFree price currency peerRatings confidenceScore')
       .populate('hub', 'name description');
     
     if (!pathway || pathway.isDeleted) {

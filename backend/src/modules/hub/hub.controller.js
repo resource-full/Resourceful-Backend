@@ -8,17 +8,17 @@ class HubController {
   });
   
   getHubs = asyncHandler(async (req, res) => {
-    const result = await hubService.getHubs(req.query);
+    const result = await hubService.getHubs(req.query, req.user?._id);
     res.status(200).json({ success: true, data: result });
   });
   
   getMyHubs = asyncHandler(async (req, res) => {
-    const result = await hubService.getMyHubs(req.user._id);
+    const result = await hubService.getMyHubs(req.user._id, req.query);
     res.status(200).json({ success: true, data: result });
   });
   
   getHubById = asyncHandler(async (req, res) => {
-    const hub = await hubService.getHubById(req.params.id);
+    const hub = await hubService.getHubById(req.params.id, req.user?._id);
     res.status(200).json({ success: true, data: hub });
   });
   
@@ -30,6 +30,12 @@ class HubController {
   deleteHub = asyncHandler(async (req, res) => {
     const result = await hubService.deleteHub(req.params.id, req.user._id);
     res.status(200).json({ success: true, data: result });
+  });
+  
+  changeHubStatus = asyncHandler(async (req, res) => {
+    const { status } = req.body;
+    const hub = await hubService.changeHubStatus(req.params.id, req.user._id, status);
+    res.status(200).json({ success: true, data: hub });
   });
   
   addResourceToHub = asyncHandler(async (req, res) => {
@@ -50,13 +56,21 @@ class HubController {
     res.status(200).json({ success: true, data: hub });
   });
   
-  followHub = asyncHandler(async (req, res) => {
-    const hub = await hubService.followHub(req.params.id, req.user._id);
+  addPathwayToHub = asyncHandler(async (req, res) => {
+    const hub = await hubService.addPathwayToHub(
+      req.params.id,
+      req.params.pathwayId,
+      req.user._id
+    );
     res.status(200).json({ success: true, data: hub });
   });
   
-  unfollowHub = asyncHandler(async (req, res) => {
-    const hub = await hubService.unfollowHub(req.params.id, req.user._id);
+  removePathwayFromHub = asyncHandler(async (req, res) => {
+    const hub = await hubService.removePathwayFromHub(
+      req.params.id,
+      req.params.pathwayId,
+      req.user._id
+    );
     res.status(200).json({ success: true, data: hub });
   });
 }

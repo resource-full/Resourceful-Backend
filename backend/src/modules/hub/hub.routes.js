@@ -12,9 +12,10 @@ router.get('/my', hubController.getMyHubs);
 router.get('/:id', hubController.getHubById);
 router.put('/:id', hubController.updateHub);
 router.delete('/:id', hubController.deleteHub);
+router.patch('/:id/status', hubController.changeHubStatus);
 router.post('/:id/resources/:resourceId', hubController.addResourceToHub);
 router.delete('/:id/resources/:resourceId', hubController.removeResourceFromHub);
-router.post('/:id/follow', hubController.followHub);
-router.delete('/:id/follow', hubController.unfollowHub);
+router.post('/:id/pathways/:pathwayId', hubController.addPathwayToHub);
+router.delete('/:id/pathways/:pathwayId', hubController.removePathwayFromHub);
 
 module.exports = router;
