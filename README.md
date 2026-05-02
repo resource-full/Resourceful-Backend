@@ -67,28 +67,56 @@ npm run dev
 
 ## **Resources** (`/resources`)
 
-| Method | Endpoint                       | Description                   | Auth Required            | Body                                                                        |
-| ------ | ------------------------------ | ----------------------------- | ------------------------ | --------------------------------------------------------------------------- |
-| POST   | `/resources`                   | Create new resource           | Yes                      | `{ title, description, link, category, country, tags }`                     |
-| GET    | `/resources`                   | Get all resources (paginated) | No                       | Query: `?page=1&limit=10&category=course&search=node&sort=-confidenceScore` |
-| GET    | `/resources/:id`               | Get single resource details   | No                       | -                                                                           |
-| PUT    | `/resources/:id`               | Update resource               | Yes (owner/collaborator) | `{ title, description, link, category }`                                    |
-| DELETE | `/resources/:id`               | Delete resource               | Yes (owner only)         | -                                                                           |
-| POST   | `/resources/:id/collaborators` | Add collaborator to resource  | Yes (owner only)         | `{ email }`                                                                 |
-| POST   | `/resources/:id/rate`          | Rate a resource (1-5)         | Yes                      | `{ rating }`                                                                |
+| Method | Endpoint                            | Description                     | Auth Required            | Body                                                                                            |
+| ------ | ----------------------------------- | ------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------- |
+| POST   | `/resources`                        | Create new resource             | Yes                      | FormData: `{ name, description, resourceFile, coverPhoto, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
+| GET    | `/resources`                        | Get all resources (paginated)   | No                       | Query: `?page=1&limit=10&industry=Software Development&experience=Professional&isFree=true&search=javascript&sort=-confidenceScore` |
+| GET    | `/resources/my`                     | Get authenticated user's resources | Yes                   | Query: `?page=1&limit=10&status=draft`                                                          |
+| GET    | `/resources/:id`                    | Get single resource details     | No (public) / Yes (private) | -                                                                                              |
+| PUT    | `/resources/:id`                    | Update resource                 | Yes (owner/collaborator) | FormData: `{ name, description, resourceFile, coverPhoto, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
+| DELETE | `/resources/:id`                    | Delete resource                 | Yes (owner only)         | -                                                                                               |
+| PATCH  | `/resources/:id/status`             | Change resource status          | Yes (owner only)         | `{ status: "draft" \| "private" \| "shared" \| "public" }`                                     |
+| POST   | `/resources/:id/share`              | Share resource with user        | Yes (owner only)         | `{ userId }`                                                                                    |
+| DELETE | `/resources/:id/share`              | Remove share access             | Yes (owner only)         | `{ userId }`                                                                                    |
+| POST   | `/resources/:id/collaborators`      | Add collaborator                | Yes (owner only)         | `{ userId, permission: "view" \| "edit" \| "admin" }`                                           |
+| DELETE | `/resources/:id/collaborators`      | Remove collaborator             | Yes (owner only)         | `{ userId }`                                                                                    |
+| POST   | `/resources/:id/rate`               | Rate a resource (1-5)           | Yes                      | `{ rating }`                                                                                    |
+| GET    | `/resources/:id/download`           | Download resource file          | Yes                      | -                                                                                               |
 
 ---
 
 ## **Pathways** (`/pathways`)
 
-| Method | Endpoint            | Description                       | Auth Required    | Body                                                                |
-| ------ | ------------------- | --------------------------------- | ---------------- | ------------------------------------------------------------------- |
-| POST   | `/pathways`         | Create new pathway                | Yes              | `{ title, description, category, difficulty, resources }`           |
-| GET    | `/pathways`         | Get all pathways (paginated)      | No               | Query: `?page=1&limit=10&category=skill-development&search=backend` |
-| GET    | `/pathways/:id`     | Get single pathway details        | No               | -                                                                   |
-| GET    | `/pathways/user/my` | Get authenticated user's pathways | Yes              | -                                                                   |
-| PUT    | `/pathways/:id`     | Update pathway                    | Yes (owner only) | `{ title, description, resources }`                                 |
-| DELETE | `/pathways/:id`     | Delete pathway                    | Yes (owner only) | -                                                                   |
+| Method | Endpoint                        | Description                     | Auth Required    | Body                                                                                            |
+| ------ | ------------------------------- | ------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------- |
+| POST   | `/pathways`                     | Create new pathway              | Yes              | `{ name, description, blocks, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
+| GET    | `/pathways`                     | Get all pathways (paginated)    | No               | Query: `?page=1&limit=10&industry=Software Development&experience=Professional&search=backend`  |
+| GET    | `/pathways/:id`                 | Get single pathway details      | No (public) / Yes (private) | -                                                                                     |
+| GET    | `/pathways/user/my`             | Get authenticated user's pathways | Yes            | Query: `?page=1&limit=10&status=draft`                                                          |
+| PUT    | `/pathways/:id`                 | Update pathway                  | Yes (owner only) | `{ name, description, blocks, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
+| DELETE | `/pathways/:id`                 | Delete pathway                  | Yes (owner only) | -                                                                                               |
+| PATCH  | `/pathways/:id/status`          | Change pathway status           | Yes (owner only) | `{ status: "draft" \| "public" }`                                                              |
+| POST   | `/pathways/:id/blocks`          | Add block to pathway            | Yes (owner only) | `{ type: "text" \| "resource", name, shortDescription, resource, notes }`                      |
+| DELETE | `/pathways/:id/blocks/:blockId` | Remove block from pathway       | Yes (owner only) | -                                                                                               |
+| PUT    | `/pathways/:id/blocks/reorder`  | Reorder pathway blocks          | Yes (owner only) | `{ blockOrders: [{ id, order }] }`                                                              |
+
+---
+
+## **Hubs** (`/hubs`)
+
+| Method | Endpoint                              | Description                  | Auth Required    | Body                                                                                            |
+| ------ | ------------------------------------- | ---------------------------- | ---------------- | ----------------------------------------------------------------------------------------------- |
+| POST   | `/hubs`                               | Create new hub               | Yes              | `{ name, description, applicableLocation, experience, industry, resources, pathways }`         |
+| GET    | `/hubs`                               | Get all hubs (paginated)     | No               | Query: `?page=1&limit=10&industry=Software Development&search=career`                           |
+| GET    | `/hubs/my`                            | Get authenticated user's hubs | Yes             | Query: `?page=1&limit=10&status=draft`                                                          |
+| GET    | `/hubs/:id`                           | Get single hub details       | No (public) / Yes (private) | -                                                                                     |
+| PUT    | `/hubs/:id`                           | Update hub                   | Yes (owner only) | `{ name, description, applicableLocation, experience, industry }`                              |
+| DELETE | `/hubs/:id`                           | Delete hub                   | Yes (owner only) | -                                                                                               |
+| PATCH  | `/hubs/:id/status`                    | Change hub status            | Yes (owner only) | `{ status: "draft" \| "public" }`                                                              |
+| POST   | `/hubs/:id/resources/:resourceId`     | Add resource to hub          | Yes (owner only) | -                                                                                               |
+| DELETE | `/hubs/:id/resources/:resourceId`     | Remove resource from hub     | Yes (owner only) | -                                                                                               |
+| POST   | `/hubs/:id/pathways/:pathwayId`       | Add pathway to hub           | Yes (owner only) | -                                                                                               |
+| DELETE | `/hubs/:id/pathways/:pathwayId`       | Remove pathway from hub      | Yes (owner only) | -                                                                                               |
 
 ---
 
@@ -103,6 +131,26 @@ npm run dev
 | GET    | `/interactions/resources/:resourceId/stats`    | Get resource interaction stats | No               | -                              |
 | DELETE | `/interactions/comments/:commentId`            | Delete a comment               | Yes (owner only) | -                              |
 | GET    | `/interactions/user/me`                        | Get user's interactions        | Yes              | Query: `?type=like` (optional) |
+
+---
+
+## **Payments** (`/payments`)
+
+| Method | Endpoint                                   | Description                     | Auth Required | Body |
+| ------ | ------------------------------------------ | ------------------------------- | ------------- | ---- |
+| POST   | `/payments/initialize/:itemType/:itemId`   | Initialize Paystack payment     | Yes           | -    |
+| GET    | `/payments/verify/:reference`              | Verify payment by reference     | Yes           | -    |
+| GET    | `/payments/status/:itemType/:itemId`       | Check purchase status           | Yes           | -    |
+
+---
+
+## **Notifications** (`/notifications`)
+
+| Method | Endpoint                   | Description                    | Auth Required | Body |
+| ------ | -------------------------- | ------------------------------ | ------------- | ---- |
+| GET    | `/notifications`           | Get user notifications         | Yes           | Query: `?page=1&limit=20&isRead=false` |
+| PATCH  | `/notifications/:id/read`  | Mark notification as read      | Yes           | -    |
+| PATCH  | `/notifications/read-all`  | Mark all notifications as read | Yes           | -    |
 
 ---
 
@@ -135,22 +183,41 @@ Authorization: Bearer <your_access_token>
 
 ### Filtering (resources)
 
-- `category`: ebook, course, video, article, tool, template, podcast, community
-- `country`: Country name
-- `verificationStatus`: true/false
+- `status`: draft, private, shared, public
+- `industry`: Law, Agriculture, Nursing, Medicine, Software Development
+- `experience`: Undergraduate, Recent graduate (0-2 years), Experienced level (3-6 years), Professional (above 6 years)
+- `applicableLocation`: Worldwide, Nigeria, United States, United Kingdom, etc.
+- `isFree`: true/false
+- `minPrice`: Minimum price filter
+- `maxPrice`: Maximum price filter
+- `hub`: Hub ID
 - `owner`: User ID
 
 ### Filtering (pathways)
 
-- `category`: career-change, skill-development, interview-prep, networking, personal-branding
-- `difficulty`: beginner, intermediate, advanced
+- `status`: draft, public
+- `industry`: Law, Agriculture, Nursing, Medicine, Software Development
+- `experience`: Undergraduate, Recent graduate (0-2 years), Experienced level (3-6 years), Professional (above 6 years)
+- `applicableLocation`: Worldwide, Nigeria, United States, United Kingdom, etc.
+- `isFree`: true/false
+- `minPrice`: Minimum price filter
+- `maxPrice`: Maximum price filter
+- `hub`: Hub ID
 - `author`: User ID
+
+### Filtering (hubs)
+
+- `status`: draft, public
+- `industry`: Law, Agriculture, Nursing, Medicine, Software Development
+- `experience`: Undergraduate, Recent graduate (0-2 years), Experienced level (3-6 years), Professional (above 6 years)
+- `applicableLocation`: Worldwide, Nigeria, United States, United Kingdom, etc.
 
 ### Sorting
 
 - `sort`: Field to sort by (prefix with `-` for descending)
-  - Resources: `-confidenceScore`, `-createdAt`, `peerRatings`
-  - Pathways: `-createdAt`, `-enrolledCount`
+  - Resources: `-confidenceScore`, `-createdAt`, `peerRatings`, `-publishedAt`
+  - Pathways: `-createdAt`, `-publishedAt`
+  - Hubs: `-createdAt`
 
 ---
 
@@ -233,22 +300,51 @@ Content-Type: application/json
 ```bash
 POST /api/resources
 Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+
+name: "AWS Certified Solutions Architect"
+description: "Complete AWS certification prep course"
+resourceFile: <file>
+coverPhoto: <file>
+applicableLocation: "Worldwide"
+experience: "Professional (above 6 years)"
+industry: "Software Development"
+isFree: false
+price: 15000
+currency: "NGN"
+tags: ["aws", "cloud", "certification"]
+hubId: "60d21b4667d0d8992e610c85"
+status: "draft"
+```
+
+### Publish Resource
+
+```bash
+PATCH /api/resources/60d21b4667d0d8992e610c85/status
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
-  "title": "AWS Certified Solutions Architect",
-  "description": "Complete AWS certification prep course",
-  "link": "https://example.com/aws-course",
-  "category": "course",
-  "country": "USA",
-  "tags": ["aws", "cloud", "certification"]
+  "status": "public"
+}
+```
+
+### Share Resource
+
+```bash
+POST /api/resources/60d21b4667d0d8992e610c85/share
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "email": "user2@example.com"
 }
 ```
 
 ### Search Resources
 
 ```bash
-GET /api/resources?search=javascript&category=course&sort=-confidenceScore&page=1&limit=20
+GET /api/resources?search=javascript&industry=Software Development&experience=Professional&isFree=true&sort=-confidenceScore&page=1&limit=20
 ```
 
 ### Add Comment
@@ -261,6 +357,132 @@ Content-Type: application/json
 {
   "comment": "This resource helped me land my first dev job!"
 }
+```
+
+### Like Resource
+
+```bash
+POST /api/interactions/resources/69e115a235a1b4e0a31c0f6a/like
+Authorization: Bearer <access_token>
+```
+
+### Create Pathway
+
+```bash
+POST /api/pathways
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "name": "From Beginner to Full Stack Developer",
+  "description": "Complete roadmap to become a full stack developer",
+  "blocks": [
+    {
+      "type": "text",
+      "name": "Introduction",
+      "shortDescription": "Getting started with web development"
+    },
+    {
+      "type": "resource",
+      "resource": "60d21b4667d0d8992e610c85"
+    },
+    {
+      "type": "text",
+      "name": "Advanced Concepts",
+      "shortDescription": "Deep dive into advanced topics"
+    }
+  ],
+  "applicableLocation": "Worldwide",
+  "experience": "Undergraduate",
+  "industry": "Software Development",
+  "isFree": true,
+  "tags": ["webdev", "fullstack", "javascript"]
+}
+```
+
+### Add Block to Pathway
+
+```bash
+POST /api/pathways/60d21b4667d0d8992e610c90/blocks
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "type": "resource",
+  "resource": "60d21b4667d0d8992e610c91",
+  "notes": "Complete this before moving to next section"
+}
+```
+
+### Create Hub
+
+```bash
+POST /api/hubs
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "name": "Software Engineering Career Hub",
+  "description": "Curated resources for software engineers",
+  "applicableLocation": "Worldwide",
+  "experience": "Experienced level (3-6 years)",
+  "industry": "Software Development",
+  "resources": ["60d21b4667d0d8992e610c85"],
+  "pathways": ["60d21b4667d0d8992e610c90"]
+}
+```
+
+### Add Resource to Hub
+
+```bash
+POST /api/hubs/60d21b4667d0d8992e610c95/resources/60d21b4667d0d8992e610c85
+Authorization: Bearer <access_token>
+```
+
+### Initialize Payment
+
+```bash
+POST /api/payments/initialize/Resource/60d21b4667d0d8992e610c85
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "authorizationUrl": "https://checkout.paystack.com/...",
+    "reference": "TXN_1623456789_abc123"
+  }
+}
+```
+
+### Verify Payment
+
+```bash
+GET /api/payments/verify/TXN_1623456789_abc123
+Authorization: Bearer <access_token>
+```
+
+### Get Notifications
+
+```bash
+GET /api/notifications?page=1&limit=20&isRead=false
+Authorization: Bearer <access_token>
+```
+
+### Mark Notification as Read
+
+```bash
+PATCH /api/notifications/60d21b4667d0d8992e610c99/read
+Authorization: Bearer <access_token>
+```
+
+### Mark All Notifications as Read
+
+```bash
+PATCH /api/notifications/read-all
+Authorization: Bearer <access_token>
 ```
 
 ---
