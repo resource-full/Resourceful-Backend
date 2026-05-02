@@ -8,7 +8,10 @@ const authRoutes = require('./modules/auth/auth.routes');
 const userRoutes = require('./modules/user/user.routes');
 const resourceRoutes = require('./modules/resource/resource.routes');
 const pathwayRoutes = require('./modules/pathway/pathway.routes');
+const hubRoutes = require('./modules/hub/hub.routes');
 const interactionRoutes = require('./modules/interaction/interaction.routes');
+const paymentRoutes = require('./modules/payment/payment.routes');
+const notificationRoutes = require('./modules/notification/notification.routes');
 
 const app = express();
 
@@ -43,7 +46,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/pathways', pathwayRoutes);
+app.use('/api/hubs', hubRoutes);
 app.use('/api/interactions', interactionRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler
 app.use((req, res) => {

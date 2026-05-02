@@ -80,11 +80,11 @@ class ResourceController {
   });
   
   shareResource = asyncHandler(async (req, res) => {
-    const { userId } = req.body;
+    const { email } = req.body;
     const resource = await resourceService.shareResource(
       req.params.id,
       req.user._id,
-      userId
+      email
     );
     
     res.status(200).json({
@@ -163,14 +163,10 @@ class ResourceController {
   });
   
   downloadResource = asyncHandler(async (req, res) => {
-    // Implement download logic with permission check
     const resource = await resourceService.getResourceById(
       req.params.id,
       req.user._id
     );
-    
-    // Increment download count
-    // Implement file download logic
     
     res.status(200).json({
       success: true,
