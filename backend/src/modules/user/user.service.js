@@ -1,36 +1,94 @@
 const User = require('./user.model');
+const Resource = require('../resource/resource.model');
+const Payment = require('../payment/payment.model');
+const FileUploadService = require('../../services/fileUpload.service');
 const ApiError = require('../../utils/apiError');
 
 class UserService {
   async getProfile(userId) {
     const user = await User.findById(userId)
-      .select('-__v')
-      .populate('savedResources', 'title category confidenceScore')
-      .populate('createdResources', 'title category confidenceScore')
-      .populate('followers', 'name email avatar')
-      .populate('following', 'name email avatar');
+      .select('-__v -password')
+      .populate('savedResources', 'name coverPhoto industry peerRatings confidenceScore')
+      .populate('createdResources', 'name coverPhoto industry peerRatings confidenceScore status')
+      .populate('followers', 'name email avatar username position')
+      .populate('following', 'name email avatar username position');
     
     if (!user) {
       throw new ApiError(404, 'User not found');
     }
     
-    return user;
+    const totalSold = await Payment.countDocuments({
+      item: { $in: user.createdResources.map(r => r._id) },
+      itemType: 'Resource',
+      status: 'success'
+    });
+    
+    const publicResources = user.createdResources.filter(r => r.status === 'public');
+    const avgRelevancyScore = publicResources.length > 0
+      ? publicResources.reduce((sum, r) => sum + (r.confidenceScore || 0), 0) / publicResources.length
+      : 0;
+    
+    const userObj = user.toObject();
+    userObj.stats = {
+      following: user.following.length,
+      followers: user.followers.length,
+      totalCreated: user.createdResources.length,
+      totalSold,
+      avgRelevancyScore: Math.round(avgRelevancyScore * 100) / 100
+    };
+    
+    return userObj;
   }
   
-  async updateProfile(userId, updateData) {
-    // Prevent password update through this method
+  async updateProfile(userId, updateData, files) {
     delete updateData.password;
-    delete updateData.role; // Role should be updated through admin routes only
-    delete updateData.email; // Email change should require verification
+    delete updateData.role;
+    delete updateData.email;
+    delete updateData.followers;
+    delete updateData.following;
+    delete updateData.createdResources;
+    delete updateData.savedResources;
+    
+    // Check username uniqueness
+    if (updateData.username) {
+      const existingUser = await User.findOne({ 
+        username: updateData.username.toLowerCase(),
+        _id: { $ne: userId }
+      });
+      
+      if (existingUser) {
+        throw new ApiError(400, 'Username is already taken');
+      }
+    }
+    
+    // Handle avatar upload
+    if (files && files.avatar) {
+      const uploadResult = await FileUploadService.uploadFile(
+        files.avatar,
+        'avatars'
+      );
+      updateData.avatar = uploadResult.url;
+    }
+    
+    // Handle cover image upload
+    if (files && files.coverImage) {
+      const uploadResult = await FileUploadService.uploadFile(
+        files.coverImage,
+        'covers'
+      );
+      updateData.coverImage = uploadResult.url;
+    }
+    
+    // Set profile status
+    if (updateData.profileStatus) {
+      updateData.profileStatus = updateData.profileStatus;
+    }
     
     const user = await User.findByIdAndUpdate(
       userId,
       updateData,
-      {
-        new: true,
-        runValidators: true
-      }
-    ).select('-__v');
+      { new: true, runValidators: true }
+    ).select('-__v -password');
     
     if (!user) {
       throw new ApiError(404, 'User not found');
@@ -40,7 +98,7 @@ class UserService {
   }
   
   async followUser(followerId, followingId) {
-    if (followerId === followingId) {
+    if (followerId.toString() === followingId.toString()) {
       throw new ApiError(400, 'You cannot follow yourself');
     }
     
@@ -53,12 +111,10 @@ class UserService {
       throw new ApiError(404, 'User not found');
     }
     
-    // Check if already following
     if (follower.following.includes(followingId)) {
       throw new ApiError(400, 'You are already following this user');
     }
     
-    // Update both users
     await Promise.all([
       User.findByIdAndUpdate(followerId, {
         $addToSet: { following: followingId }
@@ -68,7 +124,11 @@ class UserService {
       })
     ]);
     
-    return { message: 'Successfully followed user' };
+    return { 
+      message: 'Successfully followed user',
+      following: follower.following.length + 1,
+      followers: following.followers.length + 1
+    };
   }
   
   async unfollowUser(followerId, followingId) {
@@ -81,12 +141,10 @@ class UserService {
       throw new ApiError(404, 'User not found');
     }
     
-    // Check if following
     if (!follower.following.includes(followingId)) {
       throw new ApiError(400, 'You are not following this user');
     }
     
-    // Update both users
     await Promise.all([
       User.findByIdAndUpdate(followerId, {
         $pull: { following: followingId }
@@ -96,19 +154,77 @@ class UserService {
       })
     ]);
     
-    return { message: 'Successfully unfollowed user' };
+    return { 
+      message: 'Successfully unfollowed user',
+      following: follower.following.length - 1,
+      followers: following.followers.length - 1
+    };
   }
   
   async getPublicProfile(userId) {
     const user = await User.findById(userId)
-      .select('name email avatar bio location currentCareer skills createdAt')
-      .populate('createdResources', 'title category confidenceScore');
+      .select('name username email avatar coverImage bio position shortDescription industry location currentCareer skills socials profileLink profileStatus createdAt')
+      .populate('createdResources', 'name coverPhoto industry peerRatings confidenceScore status');
     
     if (!user) {
       throw new ApiError(404, 'User not found');
     }
     
-    return user;
+    const publicResources = user.createdResources.filter(r => r.status === 'public');
+    
+    const totalSold = await Payment.countDocuments({
+      item: { $in: user.createdResources.map(r => r._id) },
+      itemType: 'Resource',
+      status: 'success'
+    });
+    
+    const avgRelevancyScore = publicResources.length > 0
+      ? publicResources.reduce((sum, r) => sum + (r.confidenceScore || 0), 0) / publicResources.length
+      : 0;
+    
+    const userObj = user.toObject();
+    userObj.stats = {
+      following: user.following ? user.following.length : 0,
+      followers: user.followers ? user.followers.length : 0,
+      totalCreated: user.createdResources.length,
+      totalSold,
+      avgRelevancyScore: Math.round(avgRelevancyScore * 100) / 100
+    };
+    
+    return userObj;
+  }
+  
+  async getProfileByUsername(username) {
+    const user = await User.findOne({ username: username.toLowerCase() })
+      .select('name username email avatar coverImage bio position shortDescription industry location currentCareer skills socials profileLink profileStatus createdAt')
+      .populate('createdResources', 'name coverPhoto industry peerRatings confidenceScore status');
+    
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+    
+    const publicResources = user.createdResources.filter(r => r.status === 'public');
+    
+    const totalSold = await Payment.countDocuments({
+      item: { $in: user.createdResources.map(r => r._id) },
+      itemType: 'Resource',
+      status: 'success'
+    });
+    
+    const avgRelevancyScore = publicResources.length > 0
+      ? publicResources.reduce((sum, r) => sum + (r.confidenceScore || 0), 0) / publicResources.length
+      : 0;
+    
+    const userObj = user.toObject();
+    userObj.stats = {
+      following: user.following ? user.following.length : 0,
+      followers: user.followers ? user.followers.length : 0,
+      totalCreated: user.createdResources.length,
+      totalSold,
+      avgRelevancyScore: Math.round(avgRelevancyScore * 100) / 100
+    };
+    
+    return userObj;
   }
   
   async searchUsers(query, page = 1, limit = 10) {
@@ -120,7 +236,7 @@ class UserService {
     
     const [users, total] = await Promise.all([
       User.find(searchCriteria)
-        .select('name email avatar bio location currentCareer')
+        .select('name username email avatar coverImage position industry')
         .limit(limit)
         .skip(skip)
         .sort({ createdAt: -1 }),
@@ -129,13 +245,18 @@ class UserService {
     
     return {
       users,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
     };
+  }
+  
+  async checkUsernameAvailability(username) {
+    const existingUser = await User.findOne({ username: username.toLowerCase() });
+    return { available: !existingUser };
+  }
+  
+  async getIndustries() {
+    const industries = ['Law', 'Agriculture', 'Nursing', 'Medicine', 'Software Development'];
+    return { industries };
   }
 }
 

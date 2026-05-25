@@ -1,13 +1,22 @@
 const express = require('express');
 const userController = require('./user.controller');
 const { protect } = require('../../middleware/auth.middleware');
+const fileUploadService = require('../../services/fileUpload.service');
 
 const router = express.Router();
 
-router.use(protect); // All routes require authentication
+// Public routes
+router.get('/username/:username', userController.getProfileByUsername);
+router.get('/check-username/:username', userController.checkUsername);
+router.get('/industries', userController.getIndustries);
+
+// Protected routes
+router.use(protect);
+
+const uploadMiddleware = fileUploadService.getUserProfileUploadMiddleware();
 
 router.get('/profile', userController.getProfile);
-router.put('/profile', userController.updateProfile);
+router.put('/profile', uploadMiddleware, userController.updateProfile);
 router.post('/follow/:userId', userController.followUser);
 router.post('/unfollow/:userId', userController.unfollowUser);
 router.get('/search', userController.searchUsers);

@@ -13,11 +13,12 @@ class FileUploadService {
       destination: (req, file, cb) => {
         let uploadPath = 'uploads/';
         
-        // Determine upload directory based on file type
         if (file.fieldname === 'resourceFile') {
           uploadPath += 'resources/';
-        } else if (file.fieldname === 'coverPhoto') {
+        } else if (file.fieldname === 'coverPhoto' || file.fieldname === 'coverImage') {
           uploadPath += 'covers/';
+        } else if (file.fieldname === 'avatar') {
+          uploadPath += 'avatars/';
         } else {
           uploadPath += 'misc/';
         }
@@ -44,7 +45,9 @@ class FileUploadService {
   validateFileType(file, cb) {
     const allowedTypes = {
       resourceFile: ['.pdf', '.mp3', '.mp4', '.jpg', '.png'],
-      coverPhoto: ['.jpg', '.jpeg', '.png']
+      coverPhoto: ['.jpg', '.jpeg', '.png'],
+      coverImage: ['.jpg', '.jpeg', '.png'],
+      avatar: ['.jpg', '.jpeg', '.png']
     };
     
     const ext = path.extname(file.originalname).toLowerCase();
@@ -54,8 +57,13 @@ class FileUploadService {
       return;
     }
     
-    if (file.fieldname === 'coverPhoto' && !allowedTypes.coverPhoto.includes(ext)) {
-      cb(new ApiError(400, 'Invalid cover photo format. Allowed: JPG, PNG'), false);
+    if ((file.fieldname === 'coverPhoto' || file.fieldname === 'coverImage') && !allowedTypes.coverPhoto.includes(ext)) {
+      cb(new ApiError(400, 'Invalid image format. Allowed: JPG, PNG'), false);
+      return;
+    }
+    
+    if (file.fieldname === 'avatar' && !allowedTypes.avatar.includes(ext)) {
+      cb(new ApiError(400, 'Invalid avatar format. Allowed: JPG, PNG'), false);
       return;
     }
     
@@ -69,9 +77,14 @@ class FileUploadService {
     ]);
   }
   
+  getUserProfileUploadMiddleware() {
+    return this.upload.fields([
+      { name: 'avatar', maxCount: 1 },
+      { name: 'coverImage', maxCount: 1 }
+    ]);
+  }
+  
   async uploadFile(file, directory) {
-    // This is a placeholder - implement actual cloud storage upload
-    // For now, return local path
     return {
       url: `/${directory}/${file.filename}`,
       format: path.extname(file.originalname).substring(1),
@@ -82,8 +95,6 @@ class FileUploadService {
   }
   
   async deleteFile(fileUrl) {
-    // Implement file deletion logic
-    // This could be from local storage or cloud storage
     return true;
   }
 }
