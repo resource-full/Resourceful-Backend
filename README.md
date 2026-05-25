@@ -11,6 +11,8 @@ A production-ready backend for a career resource marketplace.
 
 ## Getting Started
 
+The deployed backend url: https://backend-ta1r.onrender.com/api
+
 ### Prerequisites
 
 - Node.js (v14 or higher)
@@ -30,7 +32,6 @@ A production-ready backend for a career resource marketplace.
 npm run dev
 ```
 
-
 ## **ResourceFull API Endpoints**
 
 ### **Base URL:** `http://localhost:5000/api`
@@ -39,16 +40,16 @@ npm run dev
 
 ## **Authentication** (`/auth`)
 
-| Method | Endpoint                 | Description                 | Auth Required | Body                                             |
-| ------ | ------------------------ | --------------------------- | ------------- | ------------------------------------------------ |
-| POST   | `/auth/register`         | Register new user           | No            | `{ name, email, password }`                      |
-| POST   | `/auth/login`            | Login user                  | No            | `{ email, password }`                            |
-| POST   | `/auth/refresh-token`    | Get new access token        | No            | `{ refreshToken }`                               |
-| POST   | `/auth/forgot-password`  | Request password reset      | No            | `{ email }`                                      |
-| POST   | `/auth/reset-password`   | Reset password with token   | No            | `{ token, newPassword }`                         |
-| POST   | `/auth/logout`           | Logout user                 | Yes           | -                                                |
-| POST   | `/auth/change-password`  | Change password             | Yes           | `{ currentPassword, newPassword }`               |
-| GET    | `/auth/me`               | Get current user profile    | Yes           | -                                                |
+| Method | Endpoint                | Description               | Auth Required | Body                               |
+| ------ | ----------------------- | ------------------------- | ------------- | ---------------------------------- |
+| POST   | `/auth/register`        | Register new user         | No            | `{ name, email, password }`        |
+| POST   | `/auth/login`           | Login user                | No            | `{ email, password }`              |
+| POST   | `/auth/refresh-token`   | Get new access token      | No            | `{ refreshToken }`                 |
+| POST   | `/auth/forgot-password` | Request password reset    | No            | `{ email }`                        |
+| POST   | `/auth/reset-password`  | Reset password with token | No            | `{ token, newPassword }`           |
+| POST   | `/auth/logout`          | Logout user               | Yes           | -                                  |
+| POST   | `/auth/change-password` | Change password           | Yes           | `{ currentPassword, newPassword }` |
+| GET    | `/auth/me`              | Get current user profile  | Yes           | -                                  |
 
 ---
 
@@ -67,56 +68,56 @@ npm run dev
 
 ## **Resources** (`/resources`)
 
-| Method | Endpoint                            | Description                     | Auth Required            | Body                                                                                            |
-| ------ | ----------------------------------- | ------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------- |
-| POST   | `/resources`                        | Create new resource             | Yes                      | FormData: `{ name, description, resourceFile, coverPhoto, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
-| GET    | `/resources`                        | Get all resources (paginated)   | No                       | Query: `?page=1&limit=10&industry=Software Development&experience=Professional&isFree=true&search=javascript&sort=-confidenceScore` |
-| GET    | `/resources/my`                     | Get authenticated user's resources | Yes                   | Query: `?page=1&limit=10&status=draft`                                                          |
-| GET    | `/resources/:id`                    | Get single resource details     | No (public) / Yes (private) | -                                                                                              |
-| PUT    | `/resources/:id`                    | Update resource                 | Yes (owner/collaborator) | FormData: `{ name, description, resourceFile, coverPhoto, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
-| DELETE | `/resources/:id`                    | Delete resource                 | Yes (owner only)         | -                                                                                               |
-| PATCH  | `/resources/:id/status`             | Change resource status          | Yes (owner only)         | `{ status: "draft" \| "private" \| "shared" \| "public" }`                                     |
-| POST   | `/resources/:id/share`              | Share resource with user        | Yes (owner only)         | `{ userId }`                                                                                    |
-| DELETE | `/resources/:id/share`              | Remove share access             | Yes (owner only)         | `{ userId }`                                                                                    |
-| POST   | `/resources/:id/collaborators`      | Add collaborator                | Yes (owner only)         | `{ userId, permission: "view" \| "edit" \| "admin" }`                                           |
-| DELETE | `/resources/:id/collaborators`      | Remove collaborator             | Yes (owner only)         | `{ userId }`                                                                                    |
-| POST   | `/resources/:id/rate`               | Rate a resource (1-5)           | Yes                      | `{ rating }`                                                                                    |
-| GET    | `/resources/:id/download`           | Download resource file          | Yes                      | -                                                                                               |
+| Method | Endpoint                       | Description                        | Auth Required               | Body                                                                                                                                        |
+| ------ | ------------------------------ | ---------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/resources`                   | Create new resource                | Yes                         | FormData: `{ name, description, resourceFile, coverPhoto, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
+| GET    | `/resources`                   | Get all resources (paginated)      | No                          | Query: `?page=1&limit=10&industry=Software Development&experience=Professional&isFree=true&search=javascript&sort=-confidenceScore`         |
+| GET    | `/resources/my`                | Get authenticated user's resources | Yes                         | Query: `?page=1&limit=10&status=draft`                                                                                                      |
+| GET    | `/resources/:id`               | Get single resource details        | No (public) / Yes (private) | -                                                                                                                                           |
+| PUT    | `/resources/:id`               | Update resource                    | Yes (owner/collaborator)    | FormData: `{ name, description, resourceFile, coverPhoto, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
+| DELETE | `/resources/:id`               | Delete resource                    | Yes (owner only)            | -                                                                                                                                           |
+| PATCH  | `/resources/:id/status`        | Change resource status             | Yes (owner only)            | `{ status: "draft" \| "private" \| "shared" \| "public" }`                                                                                  |
+| POST   | `/resources/:id/share`         | Share resource with user           | Yes (owner only)            | `{ userId }`                                                                                                                                |
+| DELETE | `/resources/:id/share`         | Remove share access                | Yes (owner only)            | `{ userId }`                                                                                                                                |
+| POST   | `/resources/:id/collaborators` | Add collaborator                   | Yes (owner only)            | `{ userId, permission: "view" \| "edit" \| "admin" }`                                                                                       |
+| DELETE | `/resources/:id/collaborators` | Remove collaborator                | Yes (owner only)            | `{ userId }`                                                                                                                                |
+| POST   | `/resources/:id/rate`          | Rate a resource (1-5)              | Yes                         | `{ rating }`                                                                                                                                |
+| GET    | `/resources/:id/download`      | Download resource file             | Yes                         | -                                                                                                                                           |
 
 ---
 
 ## **Pathways** (`/pathways`)
 
-| Method | Endpoint                        | Description                     | Auth Required    | Body                                                                                            |
-| ------ | ------------------------------- | ------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------- |
-| POST   | `/pathways`                     | Create new pathway              | Yes              | `{ name, description, blocks, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
-| GET    | `/pathways`                     | Get all pathways (paginated)    | No               | Query: `?page=1&limit=10&industry=Software Development&experience=Professional&search=backend`  |
-| GET    | `/pathways/:id`                 | Get single pathway details      | No (public) / Yes (private) | -                                                                                     |
-| GET    | `/pathways/user/my`             | Get authenticated user's pathways | Yes            | Query: `?page=1&limit=10&status=draft`                                                          |
-| PUT    | `/pathways/:id`                 | Update pathway                  | Yes (owner only) | `{ name, description, blocks, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
-| DELETE | `/pathways/:id`                 | Delete pathway                  | Yes (owner only) | -                                                                                               |
-| PATCH  | `/pathways/:id/status`          | Change pathway status           | Yes (owner only) | `{ status: "draft" \| "public" }`                                                              |
-| POST   | `/pathways/:id/blocks`          | Add block to pathway            | Yes (owner only) | `{ type: "text" \| "resource", name, shortDescription, resource, notes }`                      |
-| DELETE | `/pathways/:id/blocks/:blockId` | Remove block from pathway       | Yes (owner only) | -                                                                                               |
-| PUT    | `/pathways/:id/blocks/reorder`  | Reorder pathway blocks          | Yes (owner only) | `{ blockOrders: [{ id, order }] }`                                                              |
+| Method | Endpoint                        | Description                       | Auth Required               | Body                                                                                                            |
+| ------ | ------------------------------- | --------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| POST   | `/pathways`                     | Create new pathway                | Yes                         | `{ name, description, blocks, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
+| GET    | `/pathways`                     | Get all pathways (paginated)      | No                          | Query: `?page=1&limit=10&industry=Software Development&experience=Professional&search=backend`                  |
+| GET    | `/pathways/:id`                 | Get single pathway details        | No (public) / Yes (private) | -                                                                                                               |
+| GET    | `/pathways/user/my`             | Get authenticated user's pathways | Yes                         | Query: `?page=1&limit=10&status=draft`                                                                          |
+| PUT    | `/pathways/:id`                 | Update pathway                    | Yes (owner only)            | `{ name, description, blocks, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
+| DELETE | `/pathways/:id`                 | Delete pathway                    | Yes (owner only)            | -                                                                                                               |
+| PATCH  | `/pathways/:id/status`          | Change pathway status             | Yes (owner only)            | `{ status: "draft" \| "public" }`                                                                               |
+| POST   | `/pathways/:id/blocks`          | Add block to pathway              | Yes (owner only)            | `{ type: "text" \| "resource", name, shortDescription, resource, notes }`                                       |
+| DELETE | `/pathways/:id/blocks/:blockId` | Remove block from pathway         | Yes (owner only)            | -                                                                                                               |
+| PUT    | `/pathways/:id/blocks/reorder`  | Reorder pathway blocks            | Yes (owner only)            | `{ blockOrders: [{ id, order }] }`                                                                              |
 
 ---
 
 ## **Hubs** (`/hubs`)
 
-| Method | Endpoint                              | Description                  | Auth Required    | Body                                                                                            |
-| ------ | ------------------------------------- | ---------------------------- | ---------------- | ----------------------------------------------------------------------------------------------- |
-| POST   | `/hubs`                               | Create new hub               | Yes              | `{ name, description, applicableLocation, experience, industry, resources, pathways }`         |
-| GET    | `/hubs`                               | Get all hubs (paginated)     | No               | Query: `?page=1&limit=10&industry=Software Development&search=career`                           |
-| GET    | `/hubs/my`                            | Get authenticated user's hubs | Yes             | Query: `?page=1&limit=10&status=draft`                                                          |
-| GET    | `/hubs/:id`                           | Get single hub details       | No (public) / Yes (private) | -                                                                                     |
-| PUT    | `/hubs/:id`                           | Update hub                   | Yes (owner only) | `{ name, description, applicableLocation, experience, industry }`                              |
-| DELETE | `/hubs/:id`                           | Delete hub                   | Yes (owner only) | -                                                                                               |
-| PATCH  | `/hubs/:id/status`                    | Change hub status            | Yes (owner only) | `{ status: "draft" \| "public" }`                                                              |
-| POST   | `/hubs/:id/resources/:resourceId`     | Add resource to hub          | Yes (owner only) | -                                                                                               |
-| DELETE | `/hubs/:id/resources/:resourceId`     | Remove resource from hub     | Yes (owner only) | -                                                                                               |
-| POST   | `/hubs/:id/pathways/:pathwayId`       | Add pathway to hub           | Yes (owner only) | -                                                                                               |
-| DELETE | `/hubs/:id/pathways/:pathwayId`       | Remove pathway from hub      | Yes (owner only) | -                                                                                               |
+| Method | Endpoint                          | Description                   | Auth Required               | Body                                                                                   |
+| ------ | --------------------------------- | ----------------------------- | --------------------------- | -------------------------------------------------------------------------------------- |
+| POST   | `/hubs`                           | Create new hub                | Yes                         | `{ name, description, applicableLocation, experience, industry, resources, pathways }` |
+| GET    | `/hubs`                           | Get all hubs (paginated)      | No                          | Query: `?page=1&limit=10&industry=Software Development&search=career`                  |
+| GET    | `/hubs/my`                        | Get authenticated user's hubs | Yes                         | Query: `?page=1&limit=10&status=draft`                                                 |
+| GET    | `/hubs/:id`                       | Get single hub details        | No (public) / Yes (private) | -                                                                                      |
+| PUT    | `/hubs/:id`                       | Update hub                    | Yes (owner only)            | `{ name, description, applicableLocation, experience, industry }`                      |
+| DELETE | `/hubs/:id`                       | Delete hub                    | Yes (owner only)            | -                                                                                      |
+| PATCH  | `/hubs/:id/status`                | Change hub status             | Yes (owner only)            | `{ status: "draft" \| "public" }`                                                      |
+| POST   | `/hubs/:id/resources/:resourceId` | Add resource to hub           | Yes (owner only)            | -                                                                                      |
+| DELETE | `/hubs/:id/resources/:resourceId` | Remove resource from hub      | Yes (owner only)            | -                                                                                      |
+| POST   | `/hubs/:id/pathways/:pathwayId`   | Add pathway to hub            | Yes (owner only)            | -                                                                                      |
+| DELETE | `/hubs/:id/pathways/:pathwayId`   | Remove pathway from hub       | Yes (owner only)            | -                                                                                      |
 
 ---
 
@@ -136,21 +137,21 @@ npm run dev
 
 ## **Payments** (`/payments`)
 
-| Method | Endpoint                                   | Description                     | Auth Required | Body |
-| ------ | ------------------------------------------ | ------------------------------- | ------------- | ---- |
-| POST   | `/payments/initialize/:itemType/:itemId`   | Initialize Paystack payment     | Yes           | -    |
-| GET    | `/payments/verify/:reference`              | Verify payment by reference     | Yes           | -    |
-| GET    | `/payments/status/:itemType/:itemId`       | Check purchase status           | Yes           | -    |
+| Method | Endpoint                                 | Description                 | Auth Required | Body |
+| ------ | ---------------------------------------- | --------------------------- | ------------- | ---- |
+| POST   | `/payments/initialize/:itemType/:itemId` | Initialize Paystack payment | Yes           | -    |
+| GET    | `/payments/verify/:reference`            | Verify payment by reference | Yes           | -    |
+| GET    | `/payments/status/:itemType/:itemId`     | Check purchase status       | Yes           | -    |
 
 ---
 
 ## **Notifications** (`/notifications`)
 
-| Method | Endpoint                   | Description                    | Auth Required | Body |
-| ------ | -------------------------- | ------------------------------ | ------------- | ---- |
-| GET    | `/notifications`           | Get user notifications         | Yes           | Query: `?page=1&limit=20&isRead=false` |
-| PATCH  | `/notifications/:id/read`  | Mark notification as read      | Yes           | -    |
-| PATCH  | `/notifications/read-all`  | Mark all notifications as read | Yes           | -    |
+| Method | Endpoint                  | Description                    | Auth Required | Body                                   |
+| ------ | ------------------------- | ------------------------------ | ------------- | -------------------------------------- |
+| GET    | `/notifications`          | Get user notifications         | Yes           | Query: `?page=1&limit=20&isRead=false` |
+| PATCH  | `/notifications/:id/read` | Mark notification as read      | Yes           | -                                      |
+| PATCH  | `/notifications/read-all` | Mark all notifications as read | Yes           | -                                      |
 
 ---
 
@@ -249,6 +250,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -447,6 +449,7 @@ Authorization: Bearer <access_token>
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
