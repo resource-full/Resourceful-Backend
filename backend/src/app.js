@@ -1,7 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const passport = require('passport');
 const errorHandler = require('./middleware/error.middleware');
+
+// Import passport config
+require('./config/passport');
 
 // Import routes
 const authRoutes = require('./modules/auth/auth.routes');
@@ -23,6 +27,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
+
+// Initialize passport
+app.use(passport.initialize());
 
 // Health check endpoint
 app.get('/health', (req, res) => {

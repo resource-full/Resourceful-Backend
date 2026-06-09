@@ -9,6 +9,16 @@ const userSchema = new mongoose.Schema({
     trim: true,
     maxlength: [50, 'Name cannot be more than 50 characters']
   },
+  firstName: {
+    type: String,
+    trim: true,
+    maxlength: [30, 'First name cannot be more than 30 characters']
+  },
+  lastName: {
+    type: String,
+    trim: true,
+    maxlength: [30, 'Last name cannot be more than 30 characters']
+  },
   username: {
     type: String,
     unique: true,
@@ -34,7 +44,6 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'Please provide a password'],
     minlength: 6,
     select: false
   },
@@ -42,6 +51,54 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['user', 'admin', 'contributor'],
     default: 'user'
+  },
+  
+  // OAuth fields
+  authProvider: {
+    type: String,
+    enum: ['local', 'google', 'linkedin'],
+    default: 'local'
+  },
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  linkedinId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  
+  // Onboarding fields
+  onboardingCompleted: {
+    type: Boolean,
+    default: false
+  },
+  onboardingStep: {
+    type: Number,
+    default: 0
+  },
+  
+  // Professional Information (from onboarding)
+  professionalExperience: {
+    type: String,
+    enum: ['Student', 'Entry level', 'Mid Level', 'Senior', ''],
+    default: ''
+  },
+  currentRole: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Current role cannot be more than 100 characters'],
+    default: ''
+  },
+  roleLocation: {
+    type: String,
+    default: ''
   },
   
   // Profile Images
@@ -90,6 +147,23 @@ const userSchema = new mongoose.Schema({
   bio: {
     type: String,
     maxlength: [500, 'Bio cannot be more than 500 characters'],
+    default: ''
+  },
+  
+  // Goals (from onboarding)
+  primaryCareerGoal: {
+    type: String,
+    trim: true,
+    maxlength: [200, 'Career goal cannot be more than 200 characters'],
+    default: ''
+  },
+  targetRoles: [{
+    type: String,
+    trim: true
+  }],
+  goalReviewTimeline: {
+    type: String,
+    enum: ['6months', '1year', ''],
     default: ''
   },
   
@@ -199,12 +273,18 @@ userSchema.pre('save', function(next) {
   if (this.isModified('username') && this.username) {
     this.profileLink = this.username.toLowerCase();
   }
+  
+  // Auto-generate name from firstName and lastName if name is not provided
+  if ((this.isModified('firstName') || this.isModified('lastName')) && !this.isModified('name')) {
+    this.name = `${this.firstName || ''} ${this.lastName || ''}`.trim();
+  }
+  
   next();
 });
 
-// Hash password before saving
+// Hash password before saving (only for local auth)
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
+  if (!this.isModified('password') || !this.password) {
     return next();
   }
   
@@ -220,6 +300,7 @@ userSchema.pre('save', async function(next) {
 
 // Compare password method
 userSchema.methods.matchPassword = async function(enteredPassword) {
+  if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
@@ -262,4 +343,3 @@ userSchema.index({ name: 'text', email: 'text', skills: 'text' });
 userSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('User', userSchema);
-

@@ -1,5 +1,6 @@
 const userService = require('./user.service');
 const asyncHandler = require('../../utils/asyncHandler');
+const { getCountries } = require('../../utils/countries');
 
 class UserController {
   getProfile = asyncHandler(async (req, res) => {
@@ -76,11 +77,89 @@ class UserController {
   });
   
   getIndustries = asyncHandler(async (req, res) => {
-    const result = await userService.getIndustries();
+    const industries = [
+      'Law',
+      'Agriculture',
+      'Nursing',
+      'Medicine',
+      'Software Development',
+      'Education',
+      'Finance',
+      'Healthcare',
+      'Marketing',
+      'Engineering',
+      'Construction',
+      'Real Estate',
+      'Transportation',
+      'Hospitality',
+      'Entertainment',
+      'Media',
+      'Telecommunications',
+      'Energy',
+      'Manufacturing',
+      'Retail',
+      'Government',
+      'Non-profit',
+      'Consulting',
+      'Design',
+      'Research',
+      'Technology',
+      'Fashion',
+      'Food & Beverage',
+      'Sports',
+      'Environmental'
+    ];
     
     res.status(200).json({
       success: true,
-      data: result
+      data: { industries }
+    });
+  });
+  
+  getCountries = asyncHandler(async (req, res) => {
+    const countries = getCountries();
+    
+    res.status(200).json({
+      success: true,
+      data: { countries }
+    });
+  });
+  
+  getProfessionalExperienceLevels = asyncHandler(async (req, res) => {
+    const levels = [
+      'Student',
+      'Entry level',
+      'Mid Level',
+      'Senior',
+      'Lead',
+      'Manager',
+      'Director',
+      'Executive'
+    ];
+    
+    res.status(200).json({
+      success: true,
+      data: { levels }
+    });
+  });
+  
+  getGoalReviewTimelines = asyncHandler(async (req, res) => {
+    const timelines = [
+      {
+        value: '6months',
+        label: "We'll remind you in 6 months",
+        description: 'Review your career goals every 6 months to stay on track'
+      },
+      {
+        value: '1year',
+        label: "We'll remind you once a year",
+        description: 'Annual review of your career goals and progress'
+      }
+    ];
+    
+    res.status(200).json({
+      success: true,
+      data: { timelines }
     });
   });
 }

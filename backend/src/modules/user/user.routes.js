@@ -9,6 +9,9 @@ const router = express.Router();
 router.get('/username/:username', userController.getProfileByUsername);
 router.get('/check-username/:username', userController.checkUsername);
 router.get('/industries', userController.getIndustries);
+router.get('/countries', userController.getCountries);
+router.get('/experience-levels', userController.getProfessionalExperienceLevels);
+router.get('/goal-review-timelines', userController.getGoalReviewTimelines);
 
 // Protected routes
 router.use(protect);

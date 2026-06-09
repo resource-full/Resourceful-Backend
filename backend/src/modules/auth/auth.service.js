@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 
 class AuthService {
   async register(userData) {
-    const { name, email, password } = userData;
+    const { email, password, firstName, lastName } = userData;
     
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -14,9 +14,12 @@ class AuthService {
     }
     
     const user = await User.create({
-      name,
+      firstName,
+      lastName,
+      name: `${firstName || ''} ${lastName || ''}`.trim(),
       email,
-      password
+      password,
+      authProvider: 'local'
     });
     
     const { accessToken, refreshToken } = generateTokens(user._id);
@@ -24,14 +27,20 @@ class AuthService {
     // Save refresh token
     user.refreshToken = refreshToken;
     user.refreshTokenExpire = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    user.lastLogin = new Date();
     await user.save({ validateBeforeSave: false });
     
     return {
       user: {
         _id: user._id,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
-        role: user.role
+        role: user.role,
+        authProvider: user.authProvider,
+        onboardingCompleted: user.onboardingCompleted,
+        onboardingStep: user.onboardingStep
       },
       accessToken,
       refreshToken
@@ -39,16 +48,28 @@ class AuthService {
   }
   
   async login(email, password) {
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email, authProvider: 'local' }).select('+password');
     
     if (!user) {
       throw new ApiError(401, 'Invalid credentials');
     }
     
+    // Check if account is locked
+    if (user.isLocked()) {
+      throw new ApiError(423, 'Account is temporarily locked. Please try again later');
+    }
+    
     const isPasswordMatch = await user.matchPassword(password);
     
     if (!isPasswordMatch) {
+      await user.incLoginAttempts();
       throw new ApiError(401, 'Invalid credentials');
+    }
+    
+    // Reset login attempts on successful login
+    if (user.loginAttempts > 0) {
+      user.loginAttempts = 0;
+      user.lockUntil = undefined;
     }
     
     const { accessToken, refreshToken } = generateTokens(user._id);
@@ -56,14 +77,48 @@ class AuthService {
     // Save refresh token
     user.refreshToken = refreshToken;
     user.refreshTokenExpire = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    user.lastLogin = new Date();
     await user.save({ validateBeforeSave: false });
     
     return {
       user: {
         _id: user._id,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
-        role: user.role
+        role: user.role,
+        authProvider: user.authProvider,
+        onboardingCompleted: user.onboardingCompleted,
+        onboardingStep: user.onboardingStep,
+        avatar: user.avatar
+      },
+      accessToken,
+      refreshToken
+    };
+  }
+  
+  // Handle OAuth login/register
+  async oauthLogin(profile, provider) {
+    const { accessToken, refreshToken } = generateTokens(profile._id);
+    
+    // Save refresh token
+    profile.refreshToken = refreshToken;
+    profile.refreshTokenExpire = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await profile.save({ validateBeforeSave: false });
+    
+    return {
+      user: {
+        _id: profile._id,
+        name: profile.name,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        email: profile.email,
+        role: profile.role,
+        authProvider: profile.authProvider,
+        onboardingCompleted: profile.onboardingCompleted,
+        onboardingStep: profile.onboardingStep,
+        avatar: profile.avatar
       },
       accessToken,
       refreshToken
@@ -114,10 +169,10 @@ class AuthService {
   }
   
   async forgotPassword(email) {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email, authProvider: 'local' });
     
     if (!user) {
-      throw new ApiError(404, 'User not found');
+      throw new ApiError(404, 'User not found or account uses social login');
     }
     
     // Generate reset token
@@ -148,7 +203,8 @@ class AuthService {
     
     const user = await User.findOne({
       passwordResetToken: hashedToken,
-      passwordResetExpire: { $gt: new Date() }
+      passwordResetExpire: { $gt: new Date() },
+      authProvider: 'local'
     }).select('+password');
     
     if (!user) {
@@ -172,6 +228,10 @@ class AuthService {
       throw new ApiError(404, 'User not found');
     }
     
+    if (user.authProvider !== 'local') {
+      throw new ApiError(400, 'Cannot change password for social login accounts');
+    }
+    
     const isPasswordMatch = await user.matchPassword(currentPassword);
     
     if (!isPasswordMatch) {
@@ -183,6 +243,94 @@ class AuthService {
     await user.save();
     
     return { message: 'Password changed successfully' };
+  }
+  
+  // Onboarding methods
+  async saveOnboardingStep(userId, stepData) {
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+    
+    const { step, data } = stepData;
+    
+    switch (step) {
+      case 1: // Personal Information
+        if (data.location) user.location = data.location;
+        if (data.professionalExperience) user.professionalExperience = data.professionalExperience;
+        if (data.currentRole) user.currentRole = data.currentRole;
+        if (data.industry) user.industry = data.industry;
+        if (data.roleLocation) user.roleLocation = data.roleLocation;
+        if (data.skills) user.skills = data.skills;
+        break;
+        
+      case 2: // Goals
+        if (data.primaryCareerGoal) user.primaryCareerGoal = data.primaryCareerGoal;
+        if (data.targetRoles) user.targetRoles = data.targetRoles;
+        if (data.goalReviewTimeline) user.goalReviewTimeline = data.goalReviewTimeline;
+        break;
+        
+      default:
+        throw new ApiError(400, 'Invalid onboarding step');
+    }
+    
+    user.onboardingStep = step;
+    
+    // Check if this is the last step (step 2) and mark onboarding as completed
+    if (step === 2) {
+      user.onboardingCompleted = true;
+    }
+    
+    await user.save({ validateBeforeSave: false });
+    
+    return {
+      onboardingCompleted: user.onboardingCompleted,
+      onboardingStep: user.onboardingStep,
+      message: user.onboardingCompleted ? 'Onboarding completed' : 'Step saved'
+    };
+  }
+  
+  async skipOnboardingStep(userId, step) {
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+    
+    user.onboardingStep = step;
+    
+    // If last step is skipped, mark onboarding as completed
+    if (step === 2) {
+      user.onboardingCompleted = true;
+    }
+    
+    await user.save({ validateBeforeSave: false });
+    
+    return {
+      onboardingCompleted: user.onboardingCompleted,
+      onboardingStep: user.onboardingStep,
+      message: user.onboardingCompleted ? 'Onboarding completed' : `Step ${step} skipped`
+    };
+  }
+  
+  async getOnboardingStatus(userId) {
+    const user = await User.findById(userId)
+      .select('onboardingCompleted onboardingStep firstName lastName email');
+    
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+    
+    return {
+      onboardingCompleted: user.onboardingCompleted,
+      onboardingStep: user.onboardingStep,
+      user: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email
+      }
+    };
   }
   
   async getMe(userId) {
