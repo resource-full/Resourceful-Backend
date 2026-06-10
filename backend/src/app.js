@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const passport = require('passport');
+const session = require('express-session');
 const errorHandler = require('./middleware/error.middleware');
 
 // Import passport config
@@ -24,12 +25,26 @@ app.use(cors({
   origin: process.env.CLIENT_URL || '*',
   credentials: true
 }));
+
+// Session middleware (required for LinkedIn OAuth)
+app.use(session({
+  secret: process.env.JWT_SECRET || 'your-session-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
 // Initialize passport
 app.use(passport.initialize());
+app.use(passport.session()); // Add this for session support
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -49,14 +64,14 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/resources', resourceRoutes);
-app.use('/api/pathways', pathwayRoutes);
-app.use('/api/hubs', hubRoutes);
-app.use('/api/interactions', interactionRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/notifications', notificationRoutes);
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/resources', resourceRoutes);
+app.use('/api/v1/pathways', pathwayRoutes);
+app.use('/api/v1/hubs', hubRoutes);
+app.use('/api/v1/interactions', interactionRoutes);
+app.use('/api/v1/payments', paymentRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 
 // 404 handler
 app.use((req, res) => {

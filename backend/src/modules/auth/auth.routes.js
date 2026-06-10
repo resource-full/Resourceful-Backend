@@ -1,7 +1,6 @@
 const express = require('express');
 const authController = require('./auth.controller');
 const { protect } = require('../../middleware/auth.middleware');
-const passport = require('passport');
 
 const router = express.Router();
 
@@ -12,7 +11,7 @@ router.post('/refresh-token', authController.refreshToken);
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
 
-// Google OAuth routes
+// Google OAuth routes - Make sure these match your Google Console
 router.get('/google', authController.googleAuth);
 router.get('/google/callback', authController.googleAuthCallback);
 
