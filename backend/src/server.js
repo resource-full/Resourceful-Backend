@@ -15,7 +15,7 @@ connectDB();
 const server = app.listen(PORT, () => {
   console.log(`ResourceFull API running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
+  console.log(`Health check: https://backend-ta1r.onrender.com/health`);
 });
 
 // Handle unhandled promise rejections
