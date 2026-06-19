@@ -20,15 +20,26 @@ const notificationRoutes = require('./modules/notification/notification.routes')
 
 const app = express();
 
+
+const allowedOrigins = process.env.CLIENT_URLS 
+  ? process.env.CLIENT_URLS.split(',') 
+  : process.env.CLIENT_URL ? [process.env.CLIENT_URL] : [];
+
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : '*',
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
 // Session middleware (required for LinkedIn OAuth)
 app.use(session({
-  secret: process.env.JWT_SECRET || 'your-session-secret',
+  secret: process.env.JWT_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
