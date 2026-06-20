@@ -155,6 +155,24 @@ npm run dev
 
 ---
 
+## **Wallet** (`/api/v1/wallet`)
+
+| Method | Endpoint | Description | Auth Required | Body |
+| ------ | -------- | ----------- | ------------- | ---- |
+| GET | `/wallet` | Get wallet overview (balance, earnings, stats) | Yes | - |
+| GET | `/wallet/banks` | Get list of supported banks | Yes | - |
+| GET | `/wallet/accounts` | Get user withdrawal accounts | Yes | - |
+| POST | `/wallet/accounts` | Add withdrawal account | Yes | `{ accountName, accountNumber, bankName }` |
+| DELETE | `/wallet/accounts/:accountId` | Remove withdrawal account | Yes | - |
+| PUT | `/wallet/accounts/:accountId/default` | Set default withdrawal account | Yes | - |
+| POST | `/wallet/withdraw` | Request withdrawal to bank | Yes | `{ amount, accountId? }` |
+| GET | `/wallet/transactions` | Get transaction history | Yes | Query: `page, limit, category, type, status, startDate, endDate, month, year` |
+| GET | `/wallet/transactions/summary/:year/:month` | Get monthly transaction summary | Yes | - |
+| GET | `/wallet/transactions/export/csv` | Export transactions as CSV | Yes | Query: `startDate, endDate, month, year` |
+| GET | `/wallet/transactions/export/pdf` | Export transactions as PDF | Yes | Query: `startDate, endDate, month, year` |
+
+---
+
 ## **System**
 
 | Method | Endpoint  | Description             | Auth Required |

@@ -21,7 +21,9 @@ const BANK_CODES = {
   'Guaranty Trust Bank': '058',
   'Jaiz Bank': '301',
   'Keystone Bank': '082',
+  'Moniepoint': '796',
   'Optimus Bank': '030',
+  'Palmpay': '855',
   'Parallex Bank': '031',
   'Polaris Bank': '076',
   'Premium Trust Bank': '033',
@@ -37,7 +39,6 @@ const BANK_CODES = {
   'Wema Bank': '035',
   'Zenith Bank': '057'
 };
-
 class WalletService {
   // Get bank list
   getBankList() {
