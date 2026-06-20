@@ -17,15 +17,19 @@ const hubRoutes = require('./modules/hub/hub.routes');
 const interactionRoutes = require('./modules/interaction/interaction.routes');
 const paymentRoutes = require('./modules/payment/payment.routes');
 const notificationRoutes = require('./modules/notification/notification.routes');
+const walletRoutes = require('./modules/wallet/wallet.routes');
+const walletWebhookRoutes = require('./modules/wallet/webhook.routes');
 
 const app = express();
 
+// Webhook routes BEFORE body parsing (Paystack sends raw body)
+app.use('/api/v1/webhooks/paystack', walletWebhookRoutes)
 
+// CORS
 const allowedOrigins = process.env.CLIENT_URLS 
   ? process.env.CLIENT_URLS.split(',') 
   : process.env.CLIENT_URL ? [process.env.CLIENT_URL] : [];
 
-// Middleware
 app.use(cors({
   origin: function(origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -37,7 +41,12 @@ app.use(cors({
   credentials: true
 }));
 
-// Session middleware (required for LinkedIn OAuth)
+// Body parsing (after webhook route)
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan('dev'));
+
+// Session middleware (required for Google and LinkedIn OAuth)
 app.use(session({
   secret: process.env.JWT_SECRET,
   resave: false,
@@ -49,13 +58,13 @@ app.use(session({
   }
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(morgan('dev'));
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
+// app.use(morgan('dev'));
 
 // Initialize passport
 app.use(passport.initialize());
-app.use(passport.session()); // Add this for session support
+app.use(passport.session());
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -83,7 +92,7 @@ app.use('/api/v1/hubs', hubRoutes);
 app.use('/api/v1/interactions', interactionRoutes);
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
-
+app.use('/api/v1/wallet', walletRoutes);
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({

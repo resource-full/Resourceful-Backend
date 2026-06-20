@@ -6,7 +6,8 @@ class PaymentController {
     const result = await paymentService.initializePayment(
       req.user._id,
       req.params.itemId,
-      req.params.itemType
+      req.params.itemType,
+      req.user.email
     );
     res.status(200).json({ success: true, data: result });
   });
