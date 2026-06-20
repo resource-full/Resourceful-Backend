@@ -7,6 +7,7 @@ const router = express.Router();
 
 // Public routes
 router.get('/', resourceController.getResources);
+router.get('/my/resources', protect, resourceController.getMyResources);
 router.get('/:id', resourceController.getResourceById);
 
 // Protected routes
@@ -25,6 +26,5 @@ router.post('/:id/collaborators', resourceController.addCollaborator);
 router.delete('/:id/collaborators', resourceController.removeCollaborator);
 router.post('/:id/rate', resourceController.rateResource);
 router.get('/:id/download', resourceController.downloadResource);
-router.get('/my/resources', resourceController.getMyResources);
 
 module.exports = router;
