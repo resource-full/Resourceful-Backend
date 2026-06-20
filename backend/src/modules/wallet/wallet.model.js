@@ -76,7 +76,7 @@ const walletSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Virtual for available balance (balance minus pending withdrawals)
+// Virtual for available balance
 walletSchema.virtual('availableBalance').get(function() {
   return Math.max(0, this.balance - this.pendingWithdrawals);
 });

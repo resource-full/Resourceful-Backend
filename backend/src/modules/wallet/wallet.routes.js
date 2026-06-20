@@ -1,15 +1,17 @@
 const express = require('express');
-const { protect, authorize } = require('../../middleware/auth.middleware');
+const { protect } = require('../../middleware/auth.middleware');
 const walletController = require('./wallet.controller');
-const walletAdminController = require('./wallet.admin.controller');
 
 const router = express.Router();
 
-// Protected user routes
+// All routes require authentication
 router.use(protect);
 
 // Wallet overview
 router.get('/', walletController.getWallet);
+
+// Get bank list
+router.get('/banks', walletController.getBanks);
 
 // Withdrawal accounts CRUD
 router.get('/accounts', walletController.getAccounts);

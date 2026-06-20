@@ -12,6 +12,16 @@ class WalletController {
     });
   });
 
+  // GET /api/v1/wallet/banks
+  getBanks = asyncHandler(async (req, res) => {
+    const banks = walletService.getBankList();
+    
+    res.status(200).json({
+      success: true,
+      data: { banks }
+    });
+  });
+
   // GET /api/v1/wallet/accounts
   getAccounts = asyncHandler(async (req, res) => {
     const accounts = await walletService.getWithdrawalAccounts(req.user._id);

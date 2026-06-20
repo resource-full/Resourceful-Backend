@@ -1,9 +1,6 @@
 const Wallet = require('./wallet.model');
 const Transaction = require('./transaction.model');
-const Payment = require('../payment/payment.model');
 const User = require('../user/user.model');
-const Resource = require('../resource/resource.model');
-const Pathway = require('../pathway/pathway.model');
 const ApiError = require('../../utils/apiError');
 const moment = require('moment-timezone');
 const axios = require('axios');
@@ -12,7 +9,41 @@ const PDFDocument = require('pdfkit');
 const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_BASE_URL = process.env.PAYSTACK_BASE_URL || 'https://api.paystack.co';
 
+// Nigerian Bank Codes
+const BANK_CODES = {
+  'Access Bank': '044',
+  'Citibank Nigeria': '023',
+  'Ecobank Nigeria': '050',
+  'Fidelity Bank': '070',
+  'First Bank of Nigeria': '011',
+  'First City Monument Bank': '214',
+  'Globus Bank': '028',
+  'Guaranty Trust Bank': '058',
+  'Jaiz Bank': '301',
+  'Keystone Bank': '082',
+  'Optimus Bank': '030',
+  'Parallex Bank': '031',
+  'Polaris Bank': '076',
+  'Premium Trust Bank': '033',
+  'Providus Bank': '024',
+  'Signature Bank': '036',
+  'Stanbic IBTC Bank': '221',
+  'Standard Chartered Bank': '068',
+  'Sterling Bank': '232',
+  'Titan Trust Bank': '026',
+  'Union Bank of Nigeria': '032',
+  'United Bank for Africa': '033',
+  'Unity Bank': '215',
+  'Wema Bank': '035',
+  'Zenith Bank': '057'
+};
+
 class WalletService {
+  // Get bank list
+  getBankList() {
+    return Object.keys(BANK_CODES).sort();
+  }
+
   // Get or create wallet
   async getOrCreateWallet(userId) {
     let wallet = await Wallet.findOne({ user: userId });
@@ -43,10 +74,7 @@ class WalletService {
       status: 'completed',
       reference: transactionRef,
       description: `Income from resource sale`,
-      metadata: {
-        resourceId,
-        paymentReference
-      },
+      metadata: { resourceId, paymentReference },
       completedAt: new Date()
     });
     
@@ -62,7 +90,6 @@ class WalletService {
   async getWallet(userId) {
     const wallet = await this.getOrCreateWallet(userId);
     
-    // Get pending withdrawals total
     const pendingWithdrawals = await Transaction.aggregate([
       {
         $match: {
@@ -80,7 +107,6 @@ class WalletService {
     ]);
     
     const pendingAmount = pendingWithdrawals.length > 0 ? pendingWithdrawals[0].total : 0;
-    
     wallet.pendingWithdrawals = pendingAmount;
     
     return {
@@ -92,11 +118,19 @@ class WalletService {
 
   // Add withdrawal account
   async addWithdrawalAccount(userId, accountData) {
-    const { accountName, accountNumber, bankName, bankCode } = accountData;
+    const { accountName, accountNumber, bankName } = accountData;
     
-    if (!accountName || !accountNumber || !bankName || !bankCode) {
-      throw new ApiError(400, 'All account fields are required');
+    if (!accountName || !accountNumber || !bankName) {
+      throw new ApiError(400, 'Account name, account number, and bank name are required');
     }
+    
+    // Auto-resolve bank code
+    const bankCode = BANK_CODES[bankName];
+    if (!bankCode) {
+      throw new ApiError(400, 'Invalid bank name. Please select from the supported banks list.');
+    }
+    
+    accountData.bankCode = bankCode;
     
     const wallet = await this.getOrCreateWallet(userId);
     
@@ -223,7 +257,7 @@ class WalletService {
       throw new ApiError(400, 'No withdrawal account found. Please add one first.');
     }
     
-    // Check for pending withdrawals
+    // Check for pending withdrawals (max 3)
     const pendingCount = await Transaction.countDocuments({
       user: userId,
       category: 'withdrawal',
@@ -262,7 +296,7 @@ class WalletService {
         `${PAYSTACK_BASE_URL}/transfer`,
         {
           source: 'balance',
-          amount: Math.round(amount * 100), // Convert to kobo/cents
+          amount: Math.round(amount * 100),
           recipient: recipientCode,
           reason: `ResourceFull payout - ${reference}`
         },
@@ -329,16 +363,10 @@ class WalletService {
         { new: true }
       );
       
-      if (transaction) {
-        // Update wallet pending withdrawals
-        const wallet = await Wallet.findOne({ user: transaction.user });
-        await wallet.save();
-      }
-      
       return transaction;
     }
     
-    if (eventType === 'transfer.failed') {
+    if (eventType === 'transfer.failed' || eventType === 'transfer.reversed') {
       const transaction = await Transaction.findOneAndUpdate(
         { paystackTransferCode: data.transfer_code },
         { 
@@ -351,32 +379,6 @@ class WalletService {
       
       if (transaction) {
         // Refund to wallet
-        await Wallet.findOneAndUpdate(
-          { user: transaction.user },
-          { 
-            $inc: { 
-              balance: transaction.amount,
-              totalWithdrawn: -transaction.amount
-            } 
-          }
-        );
-      }
-      
-      return transaction;
-    }
-    
-    if (eventType === 'transfer.reversed') {
-      const transaction = await Transaction.findOneAndUpdate(
-        { paystackTransferCode: data.transfer_code },
-        { 
-          status: 'failed',
-          failureReason: 'Transfer reversed',
-          'metadata.paystackWebhook': data
-        },
-        { new: true }
-      );
-      
-      if (transaction) {
         await Wallet.findOneAndUpdate(
           { user: transaction.user },
           { 
@@ -495,7 +497,7 @@ class WalletService {
     };
   }
 
-  // Export transactions as CSV
+  // Export CSV
   async exportCSV(userId, query = {}) {
     const { transactions } = await this.getTransactions(userId, {
       ...query,
@@ -518,15 +520,13 @@ class WalletService {
       `"${t.description.replace(/"/g, '""')}"`
     ]);
     
-    const csvContent = [
+    return [
       headers.join(','),
       ...rows.map(row => row.join(','))
     ].join('\n');
-    
-    return csvContent;
   }
 
-  // Export transactions as PDF
+  // Export PDF
   async exportPDF(userId, query = {}) {
     const { transactions } = await this.getTransactions(userId, {
       ...query,
@@ -543,73 +543,40 @@ class WalletService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
       
-      // Title
       doc.fontSize(20).text('Transaction Statement', { align: 'center' });
       doc.moveDown();
-      
-      // User info
       doc.fontSize(12).text(`User: ${user.name}`);
       doc.text(`Email: ${user.email}`);
       doc.text(`Generated: ${moment().format('YYYY-MM-DD HH:mm:ss')}`);
       doc.text(`Total Transactions: ${transactions.length}`);
       doc.moveDown();
       
-      // Table headers
       doc.fontSize(10);
       const tableTop = doc.y;
-      const colWidths = [80, 80, 70, 70, 70, 60, 60, 70];
-      const headers = ['Date', 'Reference', 'Type', 'Category', 'Amount', 'Currency', 'Status', 'Description'];
+      const headers = ['Date', 'Type', 'Category', 'Amount', 'Currency', 'Status', 'Description'];
       
-      headers.forEach((header, i) => {
-        doc.text(header, 50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), tableTop);
-      });
-      
+      headers.forEach((h, i) => doc.text(h, 50 + i * 80, tableTop));
       doc.moveDown();
       
-      // Table rows
       transactions.forEach(t => {
-        if (doc.y > 700) {
-          doc.addPage();
-        }
+        if (doc.y > 700) doc.addPage();
         
         const row = [
           moment(t.createdAt).format('YYYY-MM-DD'),
-          t.reference.substring(0, 10),
           t.type,
           t.category,
           t.amount.toFixed(2),
           t.currency,
           t.status,
-          t.description.substring(0, 20)
+          t.description.substring(0, 25)
         ];
         
-        row.forEach((cell, i) => {
-          doc.text(cell, 50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), doc.y);
-        });
-        
+        row.forEach((cell, i) => doc.text(cell, 50 + i * 80, doc.y));
         doc.moveDown();
       });
       
       doc.end();
     });
-  }
-
-  // Get all wallets (admin)
-  async getAllWallets(query = {}) {
-    const { page = 1, limit = 20 } = query;
-    
-    const wallets = await Wallet.find()
-      .populate('user', 'name email')
-      .sort({ balance: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-    
-    const total = await Wallet.countDocuments();
-    
-    return {
-      wallets,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
-    };
   }
 }
 
