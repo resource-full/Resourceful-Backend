@@ -16,29 +16,31 @@ class ResourceService {
     let resourceFileData = {};
     let coverPhotoUrl = '';
     
-    if (files && files.resourceFile) {
-      const uploadResult = await FileUploadService.uploadFile(
-        files.resourceFile,
-        'resources'
-      );
+    // Multer returns files as arrays when using .fields()
+    if (files && files.resourceFile && files.resourceFile.length > 0) {
+      const file = files.resourceFile[0];
       
-      if (files.resourceFile.size > 10485760) {
+      if (file.size > 10485760) {
         throw new ApiError(400, 'File size must not exceed 10MB');
       }
+      
+      const uploadResult = await FileUploadService.uploadFile(file, 'resources');
       
       resourceFileData = {
         url: uploadResult.url,
         format: uploadResult.format,
-        size: files.resourceFile.size
+        size: file.size
       };
+    } else {
+      throw new ApiError(400, 'Please upload a resource file');
     }
     
-    if (files && files.coverPhoto) {
-      const coverResult = await FileUploadService.uploadFile(
-        files.coverPhoto,
-        'covers'
-      );
+    if (files && files.coverPhoto && files.coverPhoto.length > 0) {
+      const file = files.coverPhoto[0];
+      const coverResult = await FileUploadService.uploadFile(file, 'covers');
       coverPhotoUrl = coverResult.url;
+    } else {
+      throw new ApiError(400, 'Please upload a cover photo');
     }
     
     const resourcePayload = {
@@ -193,28 +195,25 @@ class ResourceService {
       throw new ApiError(403, 'You do not have permission to update this resource');
     }
     
-    if (files && files.resourceFile) {
-      if (files.resourceFile.size > 10485760) {
+    if (files && files.resourceFile && files.resourceFile.length > 0) {
+      const file = files.resourceFile[0];
+      
+      if (file.size > 10485760) {
         throw new ApiError(400, 'File size must not exceed 10MB');
       }
       
-      const uploadResult = await FileUploadService.uploadFile(
-        files.resourceFile,
-        'resources'
-      );
+      const uploadResult = await FileUploadService.uploadFile(file, 'resources');
       
       updateData.resourceFile = {
         url: uploadResult.url,
         format: uploadResult.format,
-        size: files.resourceFile.size
+        size: file.size
       };
     }
     
-    if (files && files.coverPhoto) {
-      const coverResult = await FileUploadService.uploadFile(
-        files.coverPhoto,
-        'covers'
-      );
+    if (files && files.coverPhoto && files.coverPhoto.length > 0) {
+      const file = files.coverPhoto[0];
+      const coverResult = await FileUploadService.uploadFile(file, 'covers');
       updateData.coverPhoto = coverResult.url;
     }
     
