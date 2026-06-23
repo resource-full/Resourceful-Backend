@@ -27,7 +27,7 @@ class ResourceService {
       const uploadResult = await FileUploadService.uploadFile(file, 'resources');
       
       resourceFileData = {
-        url: uploadResult.url,
+        url: `uploads/${uploadResult.url}`,
         format: uploadResult.format,
         size: file.size
       };
@@ -38,7 +38,7 @@ class ResourceService {
     if (files && files.coverPhoto && files.coverPhoto.length > 0) {
       const file = files.coverPhoto[0];
       const coverResult = await FileUploadService.uploadFile(file, 'covers');
-      coverPhotoUrl = coverResult.url;
+      coverPhotoUrl = `uploads/${coverResult.url}`;
     } else {
       throw new ApiError(400, 'Please upload a cover photo');
     }
@@ -205,7 +205,7 @@ class ResourceService {
       const uploadResult = await FileUploadService.uploadFile(file, 'resources');
       
       updateData.resourceFile = {
-        url: uploadResult.url,
+        url: `uploads/${uploadResult.url}`,
         format: uploadResult.format,
         size: file.size
       };
@@ -214,7 +214,7 @@ class ResourceService {
     if (files && files.coverPhoto && files.coverPhoto.length > 0) {
       const file = files.coverPhoto[0];
       const coverResult = await FileUploadService.uploadFile(file, 'covers');
-      updateData.coverPhoto = coverResult.url;
+      updateData.coverPhoto = `uploads/${coverResult.url}`;
     }
     
     if (updateData.hubId) {

@@ -86,7 +86,7 @@ class FileUploadService {
   
   async uploadFile(file, directory) {
     return {
-      url: `/${directory}/${file.filename}`,
+      url: `${directory}/${file.filename}`,
       format: path.extname(file.originalname).substring(1),
       filename: file.filename,
       originalName: file.originalname,
