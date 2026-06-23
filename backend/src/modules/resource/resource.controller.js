@@ -1,7 +1,25 @@
 const resourceService = require('./resource.service');
 const asyncHandler = require('../../utils/asyncHandler');
+const jwt = require('jsonwebtoken');
 
 class ResourceController {
+  // Helper to extract userId from request
+  getUserId(req) {
+    if (req.user) {
+      return req.user._id || req.user.id;
+    }
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      try {
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        return decoded.id;
+      } catch (error) {
+        return null;
+      }
+    }
+    return null;
+  }
+  
   createResource = asyncHandler(async (req, res) => {
     const resource = await resourceService.createResource(
       req.user._id,
@@ -16,10 +34,8 @@ class ResourceController {
   });
   
   getResources = asyncHandler(async (req, res) => {
-    const result = await resourceService.getResources(
-      req.query,
-      req.user?._id
-    );
+    const userId = this.getUserId(req);
+    const result = await resourceService.getResources(req.query, userId);
     
     res.status(200).json({
       success: true,
@@ -28,10 +44,8 @@ class ResourceController {
   });
   
   getResourceById = asyncHandler(async (req, res) => {
-    const resource = await resourceService.getResourceById(
-      req.params.id,
-      req.user?._id
-    );
+    const userId = this.getUserId(req);
+    const resource = await resourceService.getResourceById(req.params.id, userId);
     
     res.status(200).json({
       success: true,
