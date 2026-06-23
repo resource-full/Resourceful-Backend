@@ -1,7 +1,13 @@
 const multer = require('multer');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const ApiError = require('../utils/apiError');
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 class FileUploadService {
   constructor() {
@@ -9,33 +15,24 @@ class FileUploadService {
   }
   
   configureMulter() {
-    const storage = multer.diskStorage({
-      destination: (req, file, cb) => {
-        let uploadPath = 'uploads/';
+    const storage = new CloudinaryStorage({
+      cloudinary: cloudinary,
+      params: async (req, file) => {
+        let folder = 'misc';
+        if (file.fieldname === 'resourceFile') folder = 'resources';
+        else if (file.fieldname === 'coverPhoto' || file.fieldname === 'coverImage') folder = 'covers';
+        else if (file.fieldname === 'avatar') folder = 'avatars';
         
-        if (file.fieldname === 'resourceFile') {
-          uploadPath += 'resources/';
-        } else if (file.fieldname === 'coverPhoto' || file.fieldname === 'coverImage') {
-          uploadPath += 'covers/';
-        } else if (file.fieldname === 'avatar') {
-          uploadPath += 'avatars/';
-        } else {
-          uploadPath += 'misc/';
-        }
-        
-        cb(null, uploadPath);
-      },
-      filename: (req, file, cb) => {
-        const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
-        cb(null, uniqueName);
+        return {
+          folder: `resourcefull/${folder}`,
+          resource_type: 'auto'
+        };
       }
     });
     
     return multer({
       storage: storage,
-      limits: {
-        fileSize: 10485760 // 10MB
-      },
+      limits: { fileSize: 10485760 },
       fileFilter: (req, file, cb) => {
         this.validateFileType(file, cb);
       }
@@ -50,20 +47,11 @@ class FileUploadService {
       avatar: ['.jpg', '.jpeg', '.png']
     };
     
-    const ext = path.extname(file.originalname).toLowerCase();
+    const ext = '.' + file.originalname.split('.').pop().toLowerCase();
+    const allowed = allowedTypes[file.fieldname];
     
-    if (file.fieldname === 'resourceFile' && !allowedTypes.resourceFile.includes(ext)) {
-      cb(new ApiError(400, 'Invalid resource file format. Allowed: PDF, MP3, MP4, JPG, PNG'), false);
-      return;
-    }
-    
-    if ((file.fieldname === 'coverPhoto' || file.fieldname === 'coverImage') && !allowedTypes.coverPhoto.includes(ext)) {
-      cb(new ApiError(400, 'Invalid image format. Allowed: JPG, PNG'), false);
-      return;
-    }
-    
-    if (file.fieldname === 'avatar' && !allowedTypes.avatar.includes(ext)) {
-      cb(new ApiError(400, 'Invalid avatar format. Allowed: JPG, PNG'), false);
+    if (allowed && !allowed.includes(ext)) {
+      cb(new ApiError(400, `Invalid format. Allowed: ${allowed.join(', ')}`), false);
       return;
     }
     
@@ -86,8 +74,8 @@ class FileUploadService {
   
   async uploadFile(file, directory) {
     return {
-      url: `${directory}/${file.filename}`,
-      format: path.extname(file.originalname).substring(1),
+      url: file.path,
+      format: file.originalname.split('.').pop().toLowerCase(),
       filename: file.filename,
       originalName: file.originalname,
       size: file.size
@@ -95,7 +83,15 @@ class FileUploadService {
   }
   
   async deleteFile(fileUrl) {
-    return true;
+    try {
+      const urlParts = fileUrl.split('/');
+      const filename = urlParts[urlParts.length - 1].split('.')[0];
+      const folder = urlParts.includes('covers') ? 'covers' : 'resources';
+      await cloudinary.uploader.destroy(`resourcefull/${folder}/${filename}`);
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 }
 

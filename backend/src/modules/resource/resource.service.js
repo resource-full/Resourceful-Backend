@@ -16,7 +16,6 @@ class ResourceService {
     let resourceFileData = {};
     let coverPhotoUrl = '';
     
-    // Multer returns files as arrays when using .fields()
     if (files && files.resourceFile && files.resourceFile.length > 0) {
       const file = files.resourceFile[0];
       
@@ -24,11 +23,9 @@ class ResourceService {
         throw new ApiError(400, 'File size must not exceed 10MB');
       }
       
-      const uploadResult = await FileUploadService.uploadFile(file, 'resources');
-      
       resourceFileData = {
-        url: `uploads/${uploadResult.url}`,
-        format: uploadResult.format,
+        url: file.path,
+        format: file.originalname.split('.').pop().toLowerCase(),
         size: file.size
       };
     } else {
@@ -37,8 +34,7 @@ class ResourceService {
     
     if (files && files.coverPhoto && files.coverPhoto.length > 0) {
       const file = files.coverPhoto[0];
-      const coverResult = await FileUploadService.uploadFile(file, 'covers');
-      coverPhotoUrl = `uploads/${coverResult.url}`;
+      coverPhotoUrl = file.path;
     } else {
       throw new ApiError(400, 'Please upload a cover photo');
     }
@@ -202,19 +198,16 @@ class ResourceService {
         throw new ApiError(400, 'File size must not exceed 10MB');
       }
       
-      const uploadResult = await FileUploadService.uploadFile(file, 'resources');
-      
       updateData.resourceFile = {
-        url: `uploads/${uploadResult.url}`,
-        format: uploadResult.format,
+        url: file.path,
+        format: file.originalname.split('.').pop().toLowerCase(),
         size: file.size
       };
     }
     
     if (files && files.coverPhoto && files.coverPhoto.length > 0) {
       const file = files.coverPhoto[0];
-      const coverResult = await FileUploadService.uploadFile(file, 'covers');
-      updateData.coverPhoto = `uploads/${coverResult.url}`;
+      updateData.coverPhoto = file.path;
     }
     
     if (updateData.hubId) {
