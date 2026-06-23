@@ -157,7 +157,7 @@ class ResourceService {
     }
     
     if (resource.status === 'public' || 
-        (userId && resource.owner._id.toString() !== userId.toString())) {
+        (userId && this.getOwnerId(resource) !== userId.toString())) {
       await Resource.findByIdAndUpdate(resourceId, {
         $inc: { viewCount: 1 },
         $set: { lastAccessedAt: new Date() }
@@ -257,7 +257,7 @@ class ResourceService {
       throw new ApiError(404, 'Resource not found');
     }
     
-    if (resource.owner.toString() !== userId.toString()) {
+    if (this.getOwnerId(resource) !== userId.toString()) {
       throw new ApiError(403, 'Only the owner can delete this resource');
     }
     
@@ -286,7 +286,7 @@ class ResourceService {
       throw new ApiError(404, 'Resource not found');
     }
     
-    if (resource.owner.toString() !== userId.toString()) {
+    if (this.getOwnerId(resource) !== userId.toString()) {
       throw new ApiError(403, 'Only the owner can change resource status');
     }
     
@@ -335,7 +335,7 @@ class ResourceService {
       throw new ApiError(404, 'Resource not found');
     }
     
-    if (resource.owner.toString() !== ownerId.toString()) {
+    if (this.getOwnerId(resource) !== ownerId.toString()) {
       throw new ApiError(403, 'Only the owner can share this resource');
     }
     
@@ -355,7 +355,7 @@ class ResourceService {
     }
     
     const alreadyShared = resource.sharedWith.some(
-      share => share.user.toString() === targetUser._id.toString()
+      share => this.getUserId(share.user) === targetUser._id.toString()
     );
     
     if (alreadyShared) {
@@ -396,12 +396,12 @@ class ResourceService {
       throw new ApiError(404, 'Resource not found');
     }
     
-    if (resource.owner.toString() !== ownerId.toString()) {
+    if (this.getOwnerId(resource) !== ownerId.toString()) {
       throw new ApiError(403, 'Only the owner can remove share access');
     }
     
     resource.sharedWith = resource.sharedWith.filter(
-      share => share.user.toString() !== targetUserId
+      share => this.getUserId(share.user) !== targetUserId
     );
     
     if (resource.sharedWith.length === 0 && resource.status === 'shared') {
@@ -420,7 +420,7 @@ class ResourceService {
       throw new ApiError(404, 'Resource not found');
     }
     
-    if (resource.owner.toString() !== ownerId.toString()) {
+    if (this.getOwnerId(resource) !== ownerId.toString()) {
       throw new ApiError(403, 'Only the owner can add collaborators');
     }
     
@@ -430,7 +430,7 @@ class ResourceService {
     }
     
     const existingCollaborator = resource.collaborators.find(
-      c => c.user.toString() === collaboratorId
+      c => this.getUserId(c.user) === collaboratorId
     );
     
     if (existingCollaborator) {
@@ -455,12 +455,12 @@ class ResourceService {
       throw new ApiError(404, 'Resource not found');
     }
     
-    if (resource.owner.toString() !== ownerId.toString()) {
+    if (this.getOwnerId(resource) !== ownerId.toString()) {
       throw new ApiError(403, 'Only the owner can remove collaborators');
     }
     
     resource.collaborators = resource.collaborators.filter(
-      c => c.user.toString() !== collaboratorId
+      c => this.getUserId(c.user) !== collaboratorId
     );
     
     await resource.save();
@@ -479,7 +479,7 @@ class ResourceService {
       throw new ApiError(400, 'Cannot rate non-public resources');
     }
     
-    if (resource.owner.toString() === userId.toString()) {
+    if (this.getOwnerId(resource) === userId.toString()) {
       throw new ApiError(400, 'Cannot rate your own resource');
     }
     
@@ -543,34 +543,45 @@ class ResourceService {
     };
   }
   
+  // Helper: Get owner ID whether populated or not
+  getOwnerId(resource) {
+    if (typeof resource.owner === 'object' && resource.owner._id) {
+      return resource.owner._id.toString();
+    }
+    return resource.owner.toString();
+  }
+  
+  // Helper: Get user ID from populated or plain field
+  getUserId(userField) {
+    if (typeof userField === 'object' && userField._id) {
+      return userField._id.toString();
+    }
+    return userField.toString();
+  }
+  
   checkResourceAccess(resource, userId) {
     if (resource.status === 'public') return true;
+    if (!userId) return false;
     
-    if (userId && resource.owner._id?.toString() === userId.toString()) return true;
-    if (userId && resource.owner.toString() === userId.toString()) return true;
+    const userIdStr = userId.toString();
     
-    if (userId && resource.sharedWith?.some(
-      share => share.user._id?.toString() === userId.toString() || 
-               share.user.toString() === userId.toString()
-    )) return true;
+    // Check owner
+    if (this.getOwnerId(resource) === userIdStr) return true;
     
-    if (userId && resource.collaborators?.some(
-      collab => collab.user._id?.toString() === userId.toString() || 
-                collab.user.toString() === userId.toString()
-    )) return true;
+    // Check sharedWith
+    if (resource.sharedWith?.some(share => this.getUserId(share.user) === userIdStr)) return true;
+    
+    // Check collaborators
+    if (resource.collaborators?.some(collab => this.getUserId(collab.user) === userIdStr)) return true;
     
     return false;
   }
   
   async checkUpdatePermission(resource, userId) {
-    if (resource.owner._id?.toString() === userId.toString() || 
-        resource.owner.toString() === userId.toString()) {
-      return true;
-    }
+    if (this.getOwnerId(resource) === userId.toString()) return true;
     
     const collaborator = resource.collaborators.find(
-      c => (c.user._id?.toString() === userId.toString() || 
-            c.user.toString() === userId.toString()) && 
+      c => this.getUserId(c.user) === userId.toString() && 
            (c.permission === 'edit' || c.permission === 'admin')
     );
     
