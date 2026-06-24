@@ -1,7 +1,25 @@
 const pathwayService = require('./pathway.service');
 const asyncHandler = require('../../utils/asyncHandler');
+const jwt = require('jsonwebtoken');
 
 class PathwayController {
+  // Helper to extract userId from request
+  getUserId(req) {
+    if (req.user) {
+      return req.user._id || req.user.id;
+    }
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      try {
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        return decoded.id;
+      } catch (error) {
+        return null;
+      }
+    }
+    return null;
+  }
+  
   createPathway = asyncHandler(async (req, res) => {
     const pathway = await pathwayService.createPathway(req.user._id, req.body);
     
@@ -12,7 +30,8 @@ class PathwayController {
   });
   
   getPathways = asyncHandler(async (req, res) => {
-    const result = await pathwayService.getPathways(req.query, req.user?._id);
+    const userId = this.getUserId(req);
+    const result = await pathwayService.getPathways(req.query, userId);
     
     res.status(200).json({
       success: true,
@@ -21,10 +40,8 @@ class PathwayController {
   });
   
   getPathwayById = asyncHandler(async (req, res) => {
-    const pathway = await pathwayService.getPathwayById(
-      req.params.id,
-      req.user?._id
-    );
+    const userId = this.getUserId(req);
+    const pathway = await pathwayService.getPathwayById(req.params.id, userId);
     
     res.status(200).json({
       success: true,
@@ -117,7 +134,6 @@ class PathwayController {
       data: pathway
     });
   });
-  
 }
 
 module.exports = new PathwayController();
