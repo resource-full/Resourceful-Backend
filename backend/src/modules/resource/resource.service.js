@@ -339,8 +339,8 @@ class ResourceService {
       throw new ApiError(403, 'Only the owner can share this resource');
     }
     
-    if (!['private', 'shared'].includes(resource.status)) {
-      throw new ApiError(400, 'Only private or shared resources can be shared');
+    if (!['private', 'shared', 'public'].includes(resource.status)) {
+      throw new ApiError(400, 'Only private, shared or public resources can be shared');
     }
     
     const owner = await User.findById(ownerId);
