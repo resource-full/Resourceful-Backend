@@ -3,10 +3,12 @@ const asyncHandler = require('../../utils/asyncHandler');
 const jwt = require('jsonwebtoken');
 
 class PathwayController {
-  // Helper to extract userId from request
   getUserId(req) {
-    if (req.user) {
-      return req.user._id || req.user.id;
+    if (req.user && req.user._id) {
+      return req.user._id.toString();
+    }
+    if (req.user && req.user.id) {
+      return req.user.id.toString();
     }
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       try {

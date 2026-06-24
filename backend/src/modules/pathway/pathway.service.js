@@ -5,6 +5,14 @@ const User = require('../user/user.model');
 const ApiError = require('../../utils/apiError');
 
 class PathwayService {
+  // Helper to get ID whether populated or not
+  getId(field) {
+    if (!field) return null;
+    if (typeof field === 'object' && field._id) return field._id.toString();
+    if (typeof field === 'object' && field.toString) return field.toString();
+    return field.toString();
+  }
+  
   async createPathway(userId, pathwayData) {
     const user = await User.findById(userId);
     if (!user) {
@@ -18,16 +26,6 @@ class PathwayService {
         const resource = await Resource.findById(block.resource);
         if (!resource) {
           throw new ApiError(404, `Resource not found: ${block.resource}`);
-        }
-        
-        const ownerId = resource.owner._id ? resource.owner._id.toString() : resource.owner.toString();
-        if (ownerId !== userId.toString() && 
-            resource.status !== 'public' &&
-            !resource.sharedWith.some(s => {
-              const sid = s.user._id ? s.user._id.toString() : s.user.toString();
-              return sid === userId.toString();
-            })) {
-          throw new ApiError(403, `You don't have access to resource: ${resource.name}`);
         }
       }
     }
@@ -62,19 +60,8 @@ class PathwayService {
   
   async getPathways(query = {}, userId = null) {
     const {
-      page = 1,
-      limit = 10,
-      industry,
-      experience,
-      applicableLocation,
-      isFree,
-      minPrice,
-      maxPrice,
-      hub,
-      author,
-      search,
-      sort = '-createdAt',
-      status
+      page = 1, limit = 10, industry, experience, applicableLocation,
+      isFree, minPrice, maxPrice, hub, author, search, sort = '-createdAt', status
     } = query;
     
     const skip = (page - 1) * limit;
@@ -139,20 +126,15 @@ class PathwayService {
       throw new ApiError(404, 'Pathway not found');
     }
     
-    const authorId = pathway.author._id 
-      ? pathway.author._id.toString() 
-      : pathway.author.toString();
-    
-    if (pathway.status !== 'public') {
-      if (!userId || authorId !== userId.toString()) {
-        throw new ApiError(403, 'You do not have access to this pathway');
-      }
+    // Public pathways - anyone can view
+    if (pathway.status === 'public') {
+      return pathway;
     }
     
+    // Non-public - must be the author
+    const authorId = this.getId(pathway.author);
     if (!userId || authorId !== userId.toString()) {
-      await Pathway.findByIdAndUpdate(pathwayId, {
-        $inc: { viewCount: 1 }
-      });
+      throw new ApiError(403, 'You do not have access to this pathway');
     }
     
     return pathway;
@@ -165,14 +147,12 @@ class PathwayService {
       throw new ApiError(404, 'Pathway not found');
     }
     
-    const authorId = pathway.author._id ? pathway.author._id.toString() : pathway.author.toString();
-    if (authorId !== userId.toString()) {
+    if (this.getId(pathway.author) !== userId.toString()) {
       throw new ApiError(403, 'Not authorized to update this pathway');
     }
     
     if (updateData.blocks) {
       const resourceBlocks = updateData.blocks.filter(block => block.type === 'resource');
-      
       for (const block of resourceBlocks) {
         const resource = await Resource.findById(block.resource);
         if (!resource) {
@@ -182,15 +162,10 @@ class PathwayService {
     }
     
     if (updateData.hubId) {
-      const hub = await Hub.findOne({
-        _id: updateData.hubId,
-        owner: userId
-      });
-      
+      const hub = await Hub.findOne({ _id: updateData.hubId, owner: userId });
       if (!hub) {
         throw new ApiError(404, 'Hub not found or unauthorized');
       }
-      
       updateData.hub = updateData.hubId;
     }
     
@@ -198,9 +173,7 @@ class PathwayService {
     delete updateData.author;
     
     const updatedPathway = await Pathway.findByIdAndUpdate(
-      pathwayId,
-      updateData,
-      { new: true, runValidators: true }
+      pathwayId, updateData, { new: true, runValidators: true }
     ).populate([
       { path: 'author', select: 'name email' },
       { path: 'blocks.resource', select: 'name coverPhoto' },
@@ -217,8 +190,7 @@ class PathwayService {
       throw new ApiError(404, 'Pathway not found');
     }
     
-    const authorId = pathway.author._id ? pathway.author._id.toString() : pathway.author.toString();
-    if (authorId !== userId.toString()) {
+    if (this.getId(pathway.author) !== userId.toString()) {
       throw new ApiError(403, 'Not authorized to delete this pathway');
     }
     
@@ -237,8 +209,7 @@ class PathwayService {
       throw new ApiError(404, 'Pathway not found');
     }
     
-    const authorId = pathway.author._id ? pathway.author._id.toString() : pathway.author.toString();
-    if (authorId !== userId.toString()) {
+    if (this.getId(pathway.author) !== userId.toString()) {
       throw new ApiError(403, 'Only the author can change pathway status');
     }
     
@@ -261,7 +232,6 @@ class PathwayService {
     }
     
     await pathway.save();
-    
     return pathway;
   }
   
@@ -301,8 +271,7 @@ class PathwayService {
       throw new ApiError(404, 'Pathway not found');
     }
     
-    const authorId = pathway.author._id ? pathway.author._id.toString() : pathway.author.toString();
-    if (authorId !== userId.toString()) {
+    if (this.getId(pathway.author) !== userId.toString()) {
       throw new ApiError(403, 'Not authorized to modify this pathway');
     }
     
@@ -317,11 +286,7 @@ class PathwayService {
       ? Math.max(...pathway.blocks.map(b => b.order)) 
       : 0;
     
-    pathway.blocks.push({
-      ...blockData,
-      order: maxOrder + 1
-    });
-    
+    pathway.blocks.push({ ...blockData, order: maxOrder + 1 });
     await pathway.save();
     
     return pathway.populate('blocks.resource', 'name coverPhoto');
@@ -334,17 +299,12 @@ class PathwayService {
       throw new ApiError(404, 'Pathway not found');
     }
     
-    const authorId = pathway.author._id ? pathway.author._id.toString() : pathway.author.toString();
-    if (authorId !== userId.toString()) {
+    if (this.getId(pathway.author) !== userId.toString()) {
       throw new ApiError(403, 'Not authorized to modify this pathway');
     }
     
     pathway.blocks = pathway.blocks.filter(block => block._id.toString() !== blockId);
-    
-    pathway.blocks.forEach((block, index) => {
-      block.order = index + 1;
-    });
-    
+    pathway.blocks.forEach((block, index) => { block.order = index + 1; });
     await pathway.save();
     
     return pathway;
@@ -357,16 +317,13 @@ class PathwayService {
       throw new ApiError(404, 'Pathway not found');
     }
     
-    const authorId = pathway.author._id ? pathway.author._id.toString() : pathway.author.toString();
-    if (authorId !== userId.toString()) {
+    if (this.getId(pathway.author) !== userId.toString()) {
       throw new ApiError(403, 'Not authorized to modify this pathway');
     }
     
     for (const orderItem of blockOrders) {
       const block = pathway.blocks.find(b => b._id.toString() === orderItem.id);
-      if (block) {
-        block.order = orderItem.order;
-      }
+      if (block) { block.order = orderItem.order; }
     }
     
     pathway.blocks.sort((a, b) => a.order - b.order);
