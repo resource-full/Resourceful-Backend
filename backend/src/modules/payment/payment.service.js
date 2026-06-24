@@ -45,15 +45,14 @@ class PaymentService {
     
     const reference = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
+    // Convert metadata to JSON string
+    const metadata = JSON.stringify({ userId, itemId, itemType });
+    
     const response = await paystack.initializeTransaction({
       email: userEmail,
       amount: item.price * 100,
       reference,
-      metadata: {
-        userId,
-        itemId,
-        itemType
-      }
+      metadata
     });
     
     await Payment.create({
