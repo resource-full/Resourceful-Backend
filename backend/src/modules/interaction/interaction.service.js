@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Interaction = require('./interaction.model');
 const Resource = require('../resource/resource.model');
 const User = require('../user/user.model');
@@ -17,12 +18,10 @@ class InteractionService {
     });
     
     if (existingInteraction) {
-      // Unlike
       await existingInteraction.deleteOne();
       return { liked: false, message: 'Resource unliked' };
     }
     
-    // Like
     await Interaction.create({
       user: userId,
       resource: resourceId,
@@ -45,7 +44,6 @@ class InteractionService {
     });
     
     if (existingInteraction) {
-      // Unsave
       await existingInteraction.deleteOne();
       await User.findByIdAndUpdate(userId, {
         $pull: { savedResources: resourceId }
@@ -53,7 +51,6 @@ class InteractionService {
       return { saved: false, message: 'Resource removed from saved' };
     }
     
-    // Save
     await Interaction.create({
       user: userId,
       resource: resourceId,
@@ -124,7 +121,6 @@ class InteractionService {
       throw new ApiError(404, 'Comment not found');
     }
     
-    // Check if user owns the comment
     if (comment.user.toString() !== userId.toString()) {
       throw new ApiError(403, 'Not authorized to delete this comment');
     }
@@ -147,16 +143,16 @@ class InteractionService {
   
   async getResourceStats(resourceId) {
     const stats = await Interaction.aggregate([
-      { $match: { resource: mongoose.Types.ObjectId(resourceId) } },
+      { $match: { resource: new mongoose.Types.ObjectId(resourceId) } },
       { $group: {
         _id: '$type',
         count: { $sum: 1 }
       }}
     ]);
     
-    const statsObj = {};
+    const statsObj = { likes: 0, saves: 0, comments: 0, ratings: 0, shares: 0 };
     stats.forEach(stat => {
-      statsObj[stat._id] = stat.count;
+      statsObj[stat._id + 's'] = stat.count;
     });
     
     return statsObj;
