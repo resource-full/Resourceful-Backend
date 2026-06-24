@@ -4,7 +4,7 @@ const { protect } = require('../../middleware/auth.middleware');
 
 const router = express.Router();
 
-// MUST be first - before any /:id routes
+// User pathways MUST be first
 router.get('/user/my', protect, pathwayController.getUserPathways);
 
 // Public routes
