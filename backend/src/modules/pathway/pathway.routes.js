@@ -6,6 +6,7 @@ const router = express.Router();
 
 // Public routes
 router.get('/', pathwayController.getPathways);
+router.get('/user/my', protect, pathwayController.getUserPathways);
 router.get('/:id', pathwayController.getPathwayById);
 
 // Protected routes
@@ -23,8 +24,5 @@ router.patch('/:id/status', pathwayController.changePathwayStatus);
 router.post('/:id/blocks', pathwayController.addBlock);
 router.delete('/:id/blocks/:blockId', pathwayController.removeBlock);
 router.put('/:id/blocks/reorder', pathwayController.reorderBlocks);
-
-// User pathways
-router.get('/user/my', pathwayController.getUserPathways);
 
 module.exports = router;
