@@ -1,3 +1,4 @@
+// src/modules/hub/hub.service.js
 const Hub = require('./hub.model');
 const Resource = require('../resource/resource.model');
 const Pathway = require('../pathway/pathway.model');
@@ -5,6 +6,14 @@ const User = require('../user/user.model');
 const ApiError = require('../../utils/apiError');
 
 class HubService {
+  // Helper to get ID whether populated or not
+  getId(field) {
+    if (!field) return null;
+    if (typeof field === 'object' && field._id) return field._id.toString();
+    if (typeof field === 'object' && field.toString) return field.toString();
+    return field.toString();
+  }
+
   async createHub(userId, hubData) {
     const user = await User.findById(userId);
     if (!user) {
@@ -141,10 +150,15 @@ class HubService {
       throw new ApiError(404, 'Hub not found');
     }
     
-    if (hub.status !== 'public') {
-      if (!userId || hub.owner._id.toString() !== userId.toString()) {
-        throw new ApiError(403, 'You do not have access to this hub');
-      }
+    // Public hubs accessible to everyone
+    if (hub.status === 'public') {
+      return hub;
+    }
+    
+    // Non-public: must be the owner
+    const ownerId = this.getId(hub.owner);
+    if (!userId || ownerId !== userId.toString()) {
+      throw new ApiError(403, 'You do not have access to this hub');
     }
     
     return hub;
@@ -157,7 +171,7 @@ class HubService {
       throw new ApiError(404, 'Hub not found');
     }
     
-    if (hub.owner.toString() !== userId.toString()) {
+    if (this.getId(hub.owner) !== userId.toString()) {
       throw new ApiError(403, 'Not authorized to update this hub');
     }
     
@@ -183,7 +197,7 @@ class HubService {
       throw new ApiError(404, 'Hub not found');
     }
     
-    if (hub.owner.toString() !== userId.toString()) {
+    if (this.getId(hub.owner) !== userId.toString()) {
       throw new ApiError(403, 'Not authorized to delete this hub');
     }
     
@@ -202,7 +216,7 @@ class HubService {
       throw new ApiError(404, 'Hub not found');
     }
     
-    if (hub.owner.toString() !== userId.toString()) {
+    if (this.getId(hub.owner) !== userId.toString()) {
       throw new ApiError(403, 'Only the owner can change hub status');
     }
     
@@ -227,7 +241,7 @@ class HubService {
       throw new ApiError(404, 'Hub not found');
     }
     
-    if (hub.owner.toString() !== userId.toString()) {
+    if (this.getId(hub.owner) !== userId.toString()) {
       throw new ApiError(403, 'Not authorized to modify this hub');
     }
     
@@ -236,7 +250,7 @@ class HubService {
       throw new ApiError(404, 'Resource not found');
     }
     
-    if (resource.owner.toString() !== userId.toString()) {
+    if (this.getId(resource.owner) !== userId.toString()) {
       throw new ApiError(403, 'You can only add your own resources');
     }
     
@@ -260,7 +274,7 @@ class HubService {
       throw new ApiError(404, 'Hub not found');
     }
     
-    if (hub.owner.toString() !== userId.toString()) {
+    if (this.getId(hub.owner) !== userId.toString()) {
       throw new ApiError(403, 'Not authorized to modify this hub');
     }
     
@@ -280,7 +294,7 @@ class HubService {
       throw new ApiError(404, 'Hub not found');
     }
     
-    if (hub.owner.toString() !== userId.toString()) {
+    if (this.getId(hub.owner) !== userId.toString()) {
       throw new ApiError(403, 'Not authorized to modify this hub');
     }
     
@@ -289,7 +303,7 @@ class HubService {
       throw new ApiError(404, 'Pathway not found');
     }
     
-    if (pathway.author.toString() !== userId.toString()) {
+    if (this.getId(pathway.author) !== userId.toString()) {
       throw new ApiError(403, 'You can only add your own pathways');
     }
     
@@ -313,7 +327,7 @@ class HubService {
       throw new ApiError(404, 'Hub not found');
     }
     
-    if (hub.owner.toString() !== userId.toString()) {
+    if (this.getId(hub.owner) !== userId.toString()) {
       throw new ApiError(403, 'Not authorized to modify this hub');
     }
     

@@ -4,12 +4,17 @@ const { protect } = require('../../middleware/auth.middleware');
 
 const router = express.Router();
 
+// User hubs MUST be first
+router.get('/my', protect, hubController.getMyHubs);
+
+// Public routes
+router.get('/', hubController.getHubs);
+router.get('/:id', hubController.getHubById);
+
+// Protected routes
 router.use(protect);
 
 router.post('/', hubController.createHub);
-router.get('/', hubController.getHubs);
-router.get('/my', hubController.getMyHubs);
-router.get('/:id', hubController.getHubById);
 router.put('/:id', hubController.updateHub);
 router.delete('/:id', hubController.deleteHub);
 router.patch('/:id/status', hubController.changeHubStatus);
