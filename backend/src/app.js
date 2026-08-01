@@ -22,7 +22,22 @@ const walletWebhookRoutes = require('./modules/wallet/webhook.routes');
 
 const app = express();
 
-// Webhook routes BEFORE body parsing (Paystack sends raw body)
+// Raw body capture for webhook signature verification (must be before express.json())
+app.use('/api/v1/webhooks/paystack', (req, res, next) => {
+  let rawBody = '';
+  req.on('data', chunk => { rawBody += chunk; });
+  req.on('end', () => {
+    req.rawBody = rawBody;
+    next();
+  });
+});
+
+// Body parsing
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan('dev'));
+
+// Webhook routes
 app.use('/api/v1/webhooks/paystack', walletWebhookRoutes)
 
 // CORS
@@ -48,15 +63,15 @@ app.use(morgan('dev'));
 
 // Session middleware (required for Google and LinkedIn OAuth)
 app.use(session({
-  secret: process.env.JWT_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
+   secret: process.env.SESSION_SECRET || process.env.JWT_SECRET,
+   resave: false,
+   saveUninitialized: false,
+   cookie: {
+     secure: process.env.NODE_ENV === 'production',
+     httpOnly: true,
+     maxAge: 24 * 60 * 60 * 1000
+   }
+ }));
 
 // app.use(express.json());
 // app.use(express.urlencoded({ extended: true }));

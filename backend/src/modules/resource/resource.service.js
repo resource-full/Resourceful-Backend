@@ -156,8 +156,7 @@ class ResourceService {
       throw new ApiError(403, 'You do not have access to this resource');
     }
     
-    if (resource.status === 'public' || 
-        (userId && this.getOwnerId(resource) !== userId.toString())) {
+    if (resource.status === 'public' || (userId && this.checkResourceAccess(resource, userId))) {
       await Resource.findByIdAndUpdate(resourceId, {
         $inc: { viewCount: 1 },
         $set: { lastAccessedAt: new Date() }

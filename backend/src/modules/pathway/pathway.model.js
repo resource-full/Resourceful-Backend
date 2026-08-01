@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const moment = require('moment-timezone');
+const { countryNames } = require('../../utils/countries');
 
 const pathwayBlockSchema = new mongoose.Schema({
   type: {
@@ -52,20 +53,7 @@ const pathwaySchema = new mongoose.Schema({
   applicableLocation: {
     type: String,
     required: [true, 'Please select application location'],
-    enum: [
-      'Worldwide', 'Afghanistan', 'Albania', 'Algeria', 'Argentina', 'Australia',
-      'Austria', 'Bangladesh', 'Belgium', 'Brazil', 'Canada', 'Chile', 'China',
-      'Colombia', 'Croatia', 'Denmark', 'Egypt', 'Ethiopia', 'Finland', 'France',
-      'Germany', 'Ghana', 'Greece', 'Hungary', 'Iceland', 'India', 'Indonesia',
-      'Iran', 'Iraq', 'Ireland', 'Israel', 'Italy', 'Jamaica', 'Japan', 'Jordan',
-      'Kenya', 'Kuwait', 'Lebanon', 'Malaysia', 'Mexico', 'Morocco', 'Nepal',
-      'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan',
-      'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda',
-      'Saudi Arabia', 'Senegal', 'Singapore', 'South Africa', 'South Korea',
-      'Spain', 'Sri Lanka', 'Sweden', 'Switzerland', 'Tanzania', 'Thailand',
-      'Turkey', 'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom',
-      'United States', 'Vietnam', 'Zambia', 'Zimbabwe'
-    ]
+    enum: ['Worldwide', ...countryNames]
   },
   experience: {
     type: String,

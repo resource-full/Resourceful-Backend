@@ -204,12 +204,9 @@ class AuthService {
     
     await user.save({ validateBeforeSave: false });
     
-    return {
-      message: 'Password reset token generated',
-      resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined
-    };
+    return { message: 'Password reset token generated' };
   }
-  
+
   async resetPassword(resetToken, newPassword) {
     const hashedToken = crypto
       .createHash('sha256')

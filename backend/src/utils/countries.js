@@ -197,8 +197,11 @@ const countries = [
   { code: 'ZW', name: 'Zimbabwe' }
 ];
 
+const countryNames = countries.map(c => c.name);
+const countryCodes = countries.map(c => c.code);
+
 const getCountries = () => {
-  return countries.sort((a, b) => a.name.localeCompare(b.name));
+  return [...countries].sort((a, b) => a.name.localeCompare(b.name));
 };
 
 const getCountryByCode = (code) => {
@@ -206,9 +209,8 @@ const getCountryByCode = (code) => {
 };
 
 const getCountriesByRegion = (region) => {
-  // Common regions mapping
   const africanCountries = ['NG', 'GH', 'KE', 'ZA', 'EG', 'ET', 'TZ', 'UG', 'RW', 'CM', 'CI', 'SN', 'MA', 'DZ', 'TN', 'LY', 'SD', 'SS', 'SO', 'CD', 'CG', 'GA', 'GQ', 'TD', 'CF', 'NE', 'ML', 'BF', 'BJ', 'TG', 'LR', 'SL', 'GN', 'GW', 'GM', 'SN', 'MR', 'CV', 'ST', 'KM', 'SC', 'MU', 'MG', 'MW', 'ZM', 'ZW', 'BW', 'NA', 'AO', 'MZ', 'SZ', 'LS'];
-  
+
   switch(region) {
     case 'africa':
       return countries.filter(c => africanCountries.includes(c.code));
@@ -217,4 +219,4 @@ const getCountriesByRegion = (region) => {
   }
 };
 
-module.exports = { getCountries, getCountryByCode, getCountriesByRegion };
+module.exports = { countries, countryNames, countryCodes, getCountries, getCountryByCode, getCountriesByRegion };

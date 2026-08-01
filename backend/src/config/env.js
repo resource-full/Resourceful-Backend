@@ -20,7 +20,7 @@ module.exports = {
   LINKEDIN_CALLBACK_URL: process.env.LINKEDIN_CALLBACK_URL,
   
   CLIENT_URL: process.env.CLIENT_URL,
-  CLIENT_URLS: (process.env.CLIENT_URLS).split(','),
+  CLIENT_URLS: process.env.CLIENT_URLS ? process.env.CLIENT_URLS.split(',') : [],
     
   // Paystack Configuration
   PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,

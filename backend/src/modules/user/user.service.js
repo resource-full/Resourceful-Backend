@@ -255,7 +255,38 @@ class UserService {
   }
   
   async getIndustries() {
-    const industries = ['Law', 'Agriculture', 'Nursing', 'Medicine', 'Software Development'];
+    const industries = [
+      'Law',
+      'Agriculture',
+      'Nursing',
+      'Medicine',
+      'Software Development',
+      'Education',
+      'Finance',
+      'Healthcare',
+      'Marketing',
+      'Engineering',
+      'Construction',
+      'Real Estate',
+      'Transportation',
+      'Hospitality',
+      'Entertainment',
+      'Media',
+      'Telecommunications',
+      'Energy',
+      'Manufacturing',
+      'Retail',
+      'Government',
+      'Non-profit',
+      'Consulting',
+      'Design',
+      'Research',
+      'Technology',
+      'Fashion',
+      'Food & Beverage',
+      'Sports',
+      'Environmental'
+    ];
     return { industries };
   }
 }

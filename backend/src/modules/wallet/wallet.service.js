@@ -79,18 +79,18 @@ class WalletService {
       completedAt: new Date()
     });
     
-    wallet.balance += amount;
-    wallet.totalEarned += amount;
-    wallet.resourcesSold += 1;
+    wallet.balance = wallet.balance + amount;
+    wallet.totalEarned = wallet.totalEarned + amount;
+    wallet.resourcesSold = (wallet.resourcesSold || 0) + 1;
     await wallet.save();
     
     return { wallet, transaction };
   }
 
-  // Get wallet details
+// Get wallet details
   async getWallet(userId) {
     const wallet = await this.getOrCreateWallet(userId);
-    
+
     const pendingWithdrawals = await Transaction.aggregate([
       {
         $match: {
@@ -106,10 +106,9 @@ class WalletService {
         }
       }
     ]);
-    
+
     const pendingAmount = pendingWithdrawals.length > 0 ? pendingWithdrawals[0].total : 0;
-    wallet.pendingWithdrawals = pendingAmount;
-    
+
     return {
       ...wallet.toObject(),
       availableBalance: wallet.balance - pendingAmount,
@@ -135,17 +134,17 @@ class WalletService {
     
     const wallet = await this.getOrCreateWallet(userId);
     
-    if (wallet.withdrawalAccounts.length >= 3) {
-      throw new ApiError(400, 'Maximum of 3 withdrawal accounts allowed');
-    }
-    
-    // Check for duplicate
+// Check for duplicate
     const exists = wallet.withdrawalAccounts.find(
       acc => acc.accountNumber === accountNumber && acc.bankCode === bankCode
     );
-    
+
     if (exists) {
       throw new ApiError(400, 'This bank account already exists');
+    }
+
+    if (wallet.withdrawalAccounts.length >= 3) {
+      throw new ApiError(400, 'Maximum of 3 withdrawal accounts allowed');
     }
     
     // First account is default
@@ -310,32 +309,31 @@ class WalletService {
       );
       
       // Create transaction record
-      const transaction = await Transaction.create({
-        user: userId,
-        wallet: wallet._id,
-        type: 'debit',
-        category: 'withdrawal',
-        amount,
-        currency: wallet.currency,
-        status: 'processing',
-        reference,
-        description: `Withdrawal to ${account.bankName} - ${account.accountNumber}`,
-        metadata: {
-          accountId: account._id,
-          accountName: account.accountName,
-          accountNumber: account.accountNumber,
-          bankName: account.bankName,
-          bankCode: account.bankCode
-        },
-        paystackRecipientCode: recipientCode,
-        paystackTransferCode: transferResponse.data.data.transfer_code,
-        paystackResponse: transferResponse.data.data
-      });
-      
-      // Deduct from wallet
-      wallet.balance -= amount;
-      wallet.totalWithdrawn += amount;
-      await wallet.save();
+const transaction = await Transaction.create({
+         user: userId,
+         wallet: wallet._id,
+         type: 'debit',
+         category: 'withdrawal',
+         amount,
+         currency: wallet.currency,
+         status: 'processing',
+         reference,
+         description: `Withdrawal to ${account.bankName} - ${account.accountNumber}`,
+         metadata: {
+           accountId: account._id,
+           accountName: account.accountName,
+           accountNumber: account.accountNumber,
+           bankName: account.bankName,
+           bankCode: account.bankCode
+         },
+         paystackRecipientCode: recipientCode,
+         paystackTransferCode: transferResponse.data.data.transfer_code,
+         paystackResponse: transferResponse.data.data
+       });
+
+       wallet.balance = wallet.balance - amount;
+       wallet.totalWithdrawn = wallet.totalWithdrawn + amount;
+       await wallet.save();
       
       return { 
         wallet, 
