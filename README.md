@@ -1,4 +1,4 @@
-# ResourceFull Backend API
+﻿# ResourceFull Backend API
 
 A production-ready backend for a career resource marketplace.
 
@@ -505,6 +505,112 @@ Authorization: Bearer <access_token>
 PATCH /api/notifications/read-all
 Authorization: Bearer <access_token>
 ```
+
+---
+
+
+---
+
+## **Creation Flows**
+
+### Creating a Resource
+
+**Endpoint**: POST /api/v1/resources (Auth required)
+
+**Requirements**:
+- Must be authenticated
+- Must upload a esourceFile (required) — max 10MB, formats: pdf, mp3, mp4, jpg, png
+- Must upload a coverPhoto (required) — JPG/PNG only
+- Body fields:
+  - 
+ame (required)
+  - description (required)
+  - pplicableLocation (required)
+  - experience (required)
+  - industry (required)
+  - isFree (optional, default false)
+  - price (required if not free)
+  - currency (optional, default USD)
+  - 	ags (optional)
+  - hubId (optional)
+  - status (optional, default draft)
+
+**Flow**:
+1. Multer uploads resourceFile to Cloudinary folder resourcefull/resources/
+2. Multer uploads coverPhoto to Cloudinary folder resourcefull/covers/
+3. Service validates the user exists
+4. Service validates file size (max 10MB) and format
+5. Service validates hub ownership if hubId is provided
+6. Resource is created with the user as owner
+7. Resource ID is added to the user createdResources array
+8. Resource is returned with populated owner and hub fields
+
+**Note**: To publish a resource, change status to public via PATCH /api/v1/resources/:id/status.
+
+---
+
+### Creating a Hub
+
+**Endpoint**: POST /api/v1/hubs (Auth required)
+
+**Requirements**:
+- Must be authenticated
+- Body fields:
+  - 
+ame (required) — max 100 chars
+  - description (optional) — max 500 chars
+  - pplicableLocation (required)
+  - experience (required)
+  - industry (required)
+  - status (optional, default draft)
+  - esources (optional) — must be owned by the user
+  - pathways (optional) — must be authored by the user
+
+**Flow**:
+1. Service validates the user exists
+2. Validates resources/pathways ownership if provided
+3. Hub is created with the user as owner
+4. Hub is returned with populated owner, resources, and pathways fields
+
+---
+
+### Creating a Pathway
+
+**Endpoint**: POST /api/v1/pathways (Auth required)
+
+**Requirements**:
+- Must be authenticated
+- Body fields:
+  - 
+ame (required) — max 200 chars
+  - description (required) — max 5000 chars
+  - pplicableLocation (required)
+  - experience (required)
+  - industry (required)
+  - isFree (optional, default false)
+  - price (required if not free)
+  - currency (optional, default USD)
+  - status (optional, default draft)
+  - hubId (optional) — must be owned by the user
+  - locks (optional) — array of block objects:
+    - 	ype (required) — text or resource
+    - order (required) — determines block order
+    - 
+ame (for text blocks) — max 200 chars
+    - shortDescription (for text blocks) — max 500 chars
+    - esource (for resource blocks) — valid resource ID
+    - 
+otes (optional) — max 500 chars
+
+**Flow**:
+1. Service validates the user exists
+2. Validates resource blocks exist if provided
+3. Validates hub ownership if hubId is provided
+4. Pathway is created with the user as author
+5. Blocks are sorted by order and auto-numbered
+6. Pathway is returned with populated author, blocks.resource, and hub fields
+
+**Note**: To publish a pathway, it must have a name, description, and at least one block.
 
 ---
 
