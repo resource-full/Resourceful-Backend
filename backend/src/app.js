@@ -33,8 +33,8 @@ app.use('/api/v1/webhooks/paystack', (req, res, next) => {
 });
 
 // Body parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan('dev'));
 
 // Webhook routes
