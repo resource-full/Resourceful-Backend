@@ -8,6 +8,9 @@ A production-ready backend for a career resource marketplace.
 - MongoDB with Mongoose ODM
 - JWT for authentication
 - bcryptjs for password hashing
+- Paystack for payment processing
+- Cloudinary for file storage
+- node-cron for scheduled payment reconciliation
 
 ## Getting Started
 
@@ -26,7 +29,8 @@ The deployed backend url: https://backend-ta1r.onrender.com/api
    ```bash
    npm install
    ```
-3. Start the server
+3. Copy `.env.example` to `.env` and fill in your credentials
+4. Start the server
 
 ```bash
 npm run dev
@@ -77,12 +81,12 @@ npm run dev
 | PUT    | `/resources/:id`               | Update resource                    | Yes (owner/collaborator)    | FormData: `{ name, description, resourceFile, coverPhoto, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
 | DELETE | `/resources/:id`               | Delete resource                    | Yes (owner only)            | -                                                                                                                                           |
 | PATCH  | `/resources/:id/status`        | Change resource status             | Yes (owner only)            | `{ status: "draft" \| "private" \| "shared" \| "public" }`                                                                                  |
-| POST   | `/resources/:id/share`         | Share resource with user           | Yes (owner only)            | `{ userId }`                                                                                                                                |
+| POST   | `/resources/:id/share`         | Share resource with user           | Yes (owner only)            | `{ email }`                                                                                                                                |
 | DELETE | `/resources/:id/share`         | Remove share access                | Yes (owner only)            | `{ userId }`                                                                                                                                |
 | POST   | `/resources/:id/collaborators` | Add collaborator                   | Yes (owner only)            | `{ userId, permission: "view" \| "edit" \| "admin" }`                                                                                       |
 | DELETE | `/resources/:id/collaborators` | Remove collaborator                | Yes (owner only)            | `{ userId }`                                                                                                                                |
 | POST   | `/resources/:id/rate`          | Rate a resource (1-5)              | Yes                         | `{ rating }`                                                                                                                                |
-| GET    | `/resources/:id/download`      | Download resource file             | Yes                         | -                                                                                                                                           |
+| GET    | `/resources/:id/download`      | Download resource file             | Yes (must have purchased)   | -                                                                                                                                           |
 
 ---
 
@@ -137,11 +141,43 @@ npm run dev
 
 ## **Payments** (`/payments`)
 
-| Method | Endpoint                                 | Description                 | Auth Required | Body |
-| ------ | ---------------------------------------- | --------------------------- | ------------- | ---- |
-| POST   | `/payments/initialize/:itemType/:itemId` | Initialize Paystack payment | Yes           | -    |
-| GET    | `/payments/verify/:reference`            | Verify payment by reference | Yes           | -    |
-| GET    | `/payments/status/:itemType/:itemId`     | Check purchase status       | Yes           | -    |
+| Method | Endpoint                                    | Description                 | Auth Required | Body |
+| ------ | ------------------------------------------- | --------------------------- | ------------- | ---- |
+| POST   | `/payments/initialize/:itemType/:itemId`    | Initialize Paystack payment | Yes           | -    |
+| GET    | `/payments/verify/:reference`               | Verify payment by reference | Yes           | -    |
+| GET    | `/payments/status/:itemType/:itemId`        | Check purchase status       | Yes           | -    |
+
+### Payment Flow
+
+1. User calls `POST /payments/initialize/:itemType/:itemId` to initialize payment
+2. System validates the item exists, is not free, and user hasn't already purchased it
+3. System creates a Paystack transaction and a local `Payment` record (`status: pending`)
+4. System returns `authorizationUrl` for the user to complete payment on Paystack
+5. After payment, Paystack sends a `charge.success` webhook
+6. Webhook verifies the payment and updates the `Payment` record to `status: success`
+7. System credits 90% of the payment amount to the item owner's wallet
+
+### Payment Reconciliation (Background Process)
+
+A `node-cron` job runs every 5 minutes to reconcile pending payments:
+
+- Checks all `pending` payments against Paystack's API
+- If Paystack confirms success, updates payment to `success` and credits the seller's wallet
+- If Paystack confirms failure, marks payment as `failed`
+- Implements retry logic with exponential backoff (1min, 2min, 4min) for transient failures
+- After 3 failed retries, marks payment as `failed`
+
+### Payment Reversal (Bank Chargeback)
+
+When a bank reverses a charge, Paystack sends `charge.failed` or `charge.reversed` webhooks:
+
+- System updates the `Payment` record to `status: failed`
+- System debits the seller's wallet (reverses the 90% credit)
+- Creates a `refund` transaction record in the wallet
+
+### Idempotency
+
+Payment initialization uses an idempotency key (`SHA256(userId:itemId:itemType)`) to prevent duplicate pending payments. If a user clicks "Buy" again while a pending payment exists, the system returns the existing payment reference instead of creating a new one.
 
 ---
 
@@ -367,6 +403,24 @@ Content-Type: application/json
 GET /api/resources?search=javascript&industry=Software Development&experience=Professional&isFree=true&sort=-confidenceScore&page=1&limit=20
 ```
 
+### Get Resource Details (Payment-Gated)
+
+```bash
+GET /api/resources/60d21b4667d0d8992e610c85
+Authorization: Bearer <access_token>
+```
+
+**Note:** For non-free public resources, the user must have a successful payment record. Free resources and the user's own resources are accessible without payment.
+
+### Download Resource (Payment-Gated)
+
+```bash
+GET /api/resources/60d21b4667d0d8992e610c85/download
+Authorization: Bearer <access_token>
+```
+
+**Note:** Requires a successful payment for non-free resources.
+
 ### Add Comment
 
 ```bash
@@ -485,6 +539,13 @@ GET /api/payments/verify/TXN_1623456789_abc123
 Authorization: Bearer <access_token>
 ```
 
+### Check Purchase Status
+
+```bash
+GET /api/payments/status/Resource/60d21b4667d0d8992e610c85
+Authorization: Bearer <access_token>
+```
+
 ### Get Notifications
 
 ```bash
@@ -506,111 +567,32 @@ PATCH /api/notifications/read-all
 Authorization: Bearer <access_token>
 ```
 
----
+### Add Withdrawal Account
 
+```bash
+POST /api/wallet/accounts
+Authorization: Bearer <access_token>
+Content-Type: application/json
 
----
+{
+  "accountName": "John Doe",
+  "accountNumber": "1234567890",
+  "bankName": "GTBank"
+}
+```
 
-## **Creation Flows**
+### Request Withdrawal
 
-### Creating a Resource
+```bash
+POST /api/wallet/withdraw
+Authorization: Bearer <access_token>
+Content-Type: application/json
 
-**Endpoint**: POST /api/v1/resources (Auth required)
-
-**Requirements**:
-- Must be authenticated
-- Must upload a esourceFile (required) — max 10MB, formats: pdf, mp3, mp4, jpg, png
-- Must upload a coverPhoto (required) — JPG/PNG only
-- Body fields:
-  - 
-ame (required)
-  - description (required)
-  - pplicableLocation (required)
-  - experience (required)
-  - industry (required)
-  - isFree (optional, default false)
-  - price (required if not free)
-  - currency (optional, default USD)
-  - 	ags (optional)
-  - hubId (optional)
-  - status (optional, default draft)
-
-**Flow**:
-1. Multer uploads resourceFile to Cloudinary folder resourcefull/resources/
-2. Multer uploads coverPhoto to Cloudinary folder resourcefull/covers/
-3. Service validates the user exists
-4. Service validates file size (max 10MB) and format
-5. Service validates hub ownership if hubId is provided
-6. Resource is created with the user as owner
-7. Resource ID is added to the user createdResources array
-8. Resource is returned with populated owner and hub fields
-
-**Note**: To publish a resource, change status to public via PATCH /api/v1/resources/:id/status.
-
----
-
-### Creating a Hub
-
-**Endpoint**: POST /api/v1/hubs (Auth required)
-
-**Requirements**:
-- Must be authenticated
-- Body fields:
-  - 
-ame (required) — max 100 chars
-  - description (optional) — max 500 chars
-  - pplicableLocation (required)
-  - experience (required)
-  - industry (required)
-  - status (optional, default draft)
-  - esources (optional) — must be owned by the user
-  - pathways (optional) — must be authored by the user
-
-**Flow**:
-1. Service validates the user exists
-2. Validates resources/pathways ownership if provided
-3. Hub is created with the user as owner
-4. Hub is returned with populated owner, resources, and pathways fields
-
----
-
-### Creating a Pathway
-
-**Endpoint**: POST /api/v1/pathways (Auth required)
-
-**Requirements**:
-- Must be authenticated
-- Body fields:
-  - 
-ame (required) — max 200 chars
-  - description (required) — max 5000 chars
-  - pplicableLocation (required)
-  - experience (required)
-  - industry (required)
-  - isFree (optional, default false)
-  - price (required if not free)
-  - currency (optional, default USD)
-  - status (optional, default draft)
-  - hubId (optional) — must be owned by the user
-  - locks (optional) — array of block objects:
-    - 	ype (required) — text or resource
-    - order (required) — determines block order
-    - 
-ame (for text blocks) — max 200 chars
-    - shortDescription (for text blocks) — max 500 chars
-    - esource (for resource blocks) — valid resource ID
-    - 
-otes (optional) — max 500 chars
-
-**Flow**:
-1. Service validates the user exists
-2. Validates resource blocks exist if provided
-3. Validates hub ownership if hubId is provided
-4. Pathway is created with the user as author
-5. Blocks are sorted by order and auto-numbered
-6. Pathway is returned with populated author, blocks.resource, and hub fields
-
-**Note**: To publish a pathway, it must have a name, description, and at least one block.
+{
+  "amount": 5000,
+  "accountId": "60d21b4667d0d8992e610c99"
+}
+```
 
 ---
 
@@ -662,6 +644,56 @@ otes (optional) — max 500 chars
 - `201` - Created
 - `400` - Bad Request
 - `401` - Unauthorized
-- `403` - Forbidden
+- `403` - Forbidden (includes payment required)
 - `404` - Not Found
 - `500` - Server Error
+
+---
+
+## **Payment-Gated Access**
+
+Non-free resources and pathways are protected by payment verification. To access a paid item:
+
+1. The user must have a `Payment` record with `status: 'success'` for that item
+2. The system checks this automatically when accessing resource details or downloading files
+3. Free items are accessible to everyone
+4. Owners and collaborators always have access regardless of payment status
+
+---
+
+## **Payment Reconciliation**
+
+A background reconciliation service runs every 5 minutes to:
+
+- Verify pending payments against Paystack's API
+- Update payment statuses to `success` or `failed`
+- Credit seller wallets for successful payments
+- Retry transient failures with exponential backoff (1min, 2min, 4min)
+- Mark payments as `failed` after 3 unsuccessful retries
+
+When a bank reversal occurs:
+
+- Paystack sends `charge.failed` or `charge.reversed` webhooks
+- The system updates the payment to `failed`
+- The seller's wallet is debited (reversed)
+- A refund transaction is created in the wallet
+
+---
+
+## **Environment Variables**
+
+See `.env.example` for all required environment variables. Key variables include:
+
+- `PORT` - Server port (default: 5000)
+- `MONGO_URI` - MongoDB connection string
+- `JWT_SECRET` - Secret for JWT token signing
+- `JWT_REFRESH_SECRET` - Secret for refresh token signing
+- `PAYSTACK_SECRET_KEY` - Paystack secret key
+- `PAYSTACK_PUBLIC_KEY` - Paystack public key
+- `PAYSTACK_WEBHOOK_SECRET` - Paystack webhook signature secret
+- `CLOUDINARY_CLOUD_NAME` - Cloudinary cloud name
+- `CLOUDINARY_API_KEY` - Cloudinary API key
+- `CLOUDINARY_API_SECRET` - Cloudinary API secret
+- `CLIENT_URL` - Frontend URL for OAuth callbacks
+- `CLIENT_URLS` - Comma-separated list of allowed CORS origins
+- `NODE_ENV` - Environment (development/production)
