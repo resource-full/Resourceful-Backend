@@ -68,6 +68,12 @@ class UserService {
         'avatars'
       );
       updateData.avatar = uploadResult.url;
+    } else if (updateData.avatar && typeof updateData.avatar === 'string' && updateData.avatar.startsWith('data:image')) {
+      const uploadResult = await FileUploadService.uploadBase64(
+        updateData.avatar,
+        'avatars'
+      );
+      updateData.avatar = uploadResult.url;
     }
     
     // Handle cover image upload
@@ -78,6 +84,9 @@ class UserService {
       );
       updateData.coverImage = uploadResult.url;
     }
+    
+    // Remove coverPhoto from updateData if present (frontend may send this as a CSS gradient string)
+    delete updateData.coverPhoto;
     
     // Set profile status
     if (updateData.profileStatus) {

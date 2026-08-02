@@ -4,6 +4,8 @@ const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
   
+  console.error(`[ERROR] ${err.statusCode || 500} - ${err.message} - ${req.method} ${req.originalUrl}`);
+  
   if (NODE_ENV === 'development') {
     console.error(`${err.statusCode || 500} - ${err.message}`);
   } else {

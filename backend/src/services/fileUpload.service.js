@@ -82,6 +82,20 @@ class FileUploadService {
     };
   }
   
+  async uploadBase64(base64String, directory) {
+    const result = await cloudinary.uploader.upload(base64String, {
+      folder: `resourcefull/${directory}`,
+      resource_type: 'auto'
+    });
+    return {
+      url: result.secure_url,
+      format: result.format,
+      filename: result.public_id,
+      originalName: base64String.split(';')[0].split('/')[1] || 'unknown',
+      size: result.bytes
+    };
+  }
+
   async deleteFile(fileUrl) {
     try {
       const urlParts = fileUrl.split('/');

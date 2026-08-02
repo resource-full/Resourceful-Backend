@@ -13,6 +13,8 @@ class UserController {
   });
   
   updateProfile = asyncHandler(async (req, res) => {
+    console.log('[updateProfile] req.body keys:', Object.keys(req.body));
+    console.log('[updateProfile] req.files:', req.files);
     const user = await userService.updateProfile(req.user._id, req.body, req.files);
     
     res.status(200).json({
