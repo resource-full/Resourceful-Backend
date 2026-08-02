@@ -3,6 +3,7 @@ const User = require('../user/user.model');
 const Hub = require('../hub/hub.model');
 const Interaction = require('../interaction/interaction.model');
 const NotificationService = require('../notification/notification.service');
+const Payment = require('../payment/payment.model');
 const ApiError = require('../../utils/apiError');
 const FileUploadService = require('../../services/fileUpload.service');
 
@@ -139,30 +140,43 @@ class ResourceService {
     };
   }
   
-  async getResourceById(resourceId, userId = null) {
+async getResourceById(resourceId, userId = null) {
     const resource = await Resource.findById(resourceId)
       .populate('owner', 'name email avatar bio')
       .populate('hub', 'name description')
       .populate('collaborators.user', 'name email avatar')
       .populate('sharedWith.user', 'name email');
-    
+
     if (!resource || resource.isDeleted) {
       throw new ApiError(404, 'Resource not found');
     }
-    
+
     const hasAccess = this.checkResourceAccess(resource, userId);
-    
+
     if (!hasAccess) {
       throw new ApiError(403, 'You do not have access to this resource');
     }
-    
+
+    if (!resource.isFree && userId && resource.status === 'public') {
+      const hasPurchased = await Payment.findOne({
+        user: userId,
+        item: resourceId,
+        itemType: 'Resource',
+        status: 'success'
+      });
+
+      if (!hasPurchased) {
+        throw new ApiError(403, 'You must purchase this resource to access it');
+      }
+    }
+
     if (resource.status === 'public' || (userId && this.checkResourceAccess(resource, userId))) {
       await Resource.findByIdAndUpdate(resourceId, {
         $inc: { viewCount: 1 },
         $set: { lastAccessedAt: new Date() }
       });
     }
-    
+
     let userInteractions = [];
     if (userId) {
       userInteractions = await Interaction.find({
@@ -170,7 +184,7 @@ class ResourceService {
         resource: resourceId
       }).select('type rating');
     }
-    
+
     return {
       ...resource.toObject(),
       userInteractions

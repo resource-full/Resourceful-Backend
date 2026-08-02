@@ -2,6 +2,7 @@ const Pathway = require('./pathway.model');
 const Resource = require('../resource/resource.model');
 const Hub = require('../hub/hub.model');
 const User = require('../user/user.model');
+const Payment = require('../payment/payment.model');
 const ApiError = require('../../utils/apiError');
 
 class PathwayService {
@@ -116,27 +117,42 @@ class PathwayService {
     };
   }
   
-  async getPathwayById(pathwayId, userId = null) {
+async getPathwayById(pathwayId, userId = null) {
     const pathway = await Pathway.findById(pathwayId)
       .populate('author', 'name email avatar bio')
       .populate('blocks.resource', 'name description coverPhoto industry experience applicableLocation isFree price currency peerRatings confidenceScore')
       .populate('hub', 'name description');
-    
+
     if (!pathway || pathway.isDeleted) {
       throw new ApiError(404, 'Pathway not found');
     }
-    
-    // Public pathways - anyone can view
+
+    if (pathway.status === 'public' && !pathway.isFree) {
+      if (!userId) {
+        throw new ApiError(403, 'You must purchase this pathway to access it');
+      }
+
+      const hasPurchased = await Payment.findOne({
+        user: userId,
+        item: pathwayId,
+        itemType: 'Pathway',
+        status: 'success'
+      });
+
+      if (!hasPurchased) {
+        throw new ApiError(403, 'You must purchase this pathway to access it');
+      }
+    }
+
     if (pathway.status === 'public') {
       return pathway;
     }
-    
-    // Non-public - must be the author
+
     const authorId = this.getId(pathway.author);
     if (!userId || authorId !== userId.toString()) {
       throw new ApiError(403, 'You do not have access to this pathway');
     }
-    
+
     return pathway;
   }
   
