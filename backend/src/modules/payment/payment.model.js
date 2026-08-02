@@ -30,11 +30,26 @@ const paymentSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  idempotencyKey: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
   status: {
     type: String,
     enum: ['pending', 'success', 'failed'],
     default: 'pending'
   },
+  retries: {
+    type: Number,
+    default: 0
+  },
+  maxRetries: {
+    type: Number,
+    default: 3
+  },
+  lastRetryAt: Date,
+  nextRetryAt: Date,
   paystackResponse: {
     type: mongoose.Schema.Types.Mixed
   }
@@ -46,5 +61,7 @@ const paymentSchema = new mongoose.Schema({
 
 paymentSchema.index({ user: 1 });
 paymentSchema.index({ status: 1 });
+paymentSchema.index({ idempotencyKey: 1 }, { sparse: true });
+paymentSchema.index({ nextRetryAt: 1 });
 
 module.exports = mongoose.model('Payment', paymentSchema);
