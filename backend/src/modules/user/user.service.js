@@ -62,18 +62,18 @@ class UserService {
     }
     
     // Handle avatar upload
-    if (files && files.avatar) {
+    if (files && files.avatar && files.avatar.length > 0) {
       const uploadResult = await FileUploadService.uploadFile(
-        files.avatar,
+        files.avatar[0],
         'avatars'
       );
       updateData.avatar = uploadResult.url;
     }
     
     // Handle cover image upload
-    if (files && files.coverImage) {
+    if (files && files.coverImage && files.coverImage.length > 0) {
       const uploadResult = await FileUploadService.uploadFile(
-        files.coverImage,
+        files.coverImage[0],
         'covers'
       );
       updateData.coverImage = uploadResult.url;
