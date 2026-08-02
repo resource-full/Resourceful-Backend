@@ -13,13 +13,12 @@ process.on('uncaughtException', (err) => {
 // Connect to database
 connectDB();
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`ResourceFull API running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`Health check: https://backend-ta1r.onrender.com/health`);
 
-  // Start payment reconciliation service
-  paymentReconciliation.start();
+  await paymentReconciliation.start();
 });
 
 // Handle unhandled promise rejections
@@ -32,9 +31,9 @@ process.on('unhandledRejection', (err) => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('SIGTERM RECEIVED. Shutting down gracefully');
-  paymentReconciliation.stop();
+  await paymentReconciliation.stop();
   server.close(() => {
     console.log('Process terminated!');
   });
