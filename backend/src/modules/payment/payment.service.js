@@ -345,6 +345,46 @@ class PaymentService {
 
     await payment.save();
   }
+
+  async reversePayment(reference, eventType) {
+    const payment = await Payment.findOne({ reference });
+
+    if (!payment) {
+      console.warn(`Reverse payment: no payment found for reference ${reference}`);
+      return null;
+    }
+
+    if (payment.status !== 'success') {
+      payment.status = 'failed';
+      payment.paystackResponse = { event: eventType };
+      await payment.save();
+      return payment;
+    }
+
+    payment.status = 'failed';
+    payment.paystackResponse = { event: eventType, reversedAt: new Date() };
+    await payment.save();
+
+    let item;
+    if (payment.itemType === 'Resource') {
+      item = await Resource.findById(payment.item);
+    } else if (payment.itemType === 'Pathway') {
+      item = await Pathway.findById(payment.item);
+    }
+
+    if (item && item.owner) {
+      const sellerAmount = payment.amount * 0.9;
+      await walletService.debitWallet(
+        item.owner,
+        sellerAmount,
+        payment.item,
+        payment.reference,
+        `Reversed: ${eventType}`
+      );
+    }
+
+    return payment;
+  }
 }
 
 module.exports = new PaymentService();

@@ -28,6 +28,11 @@ const handlePaystackWebhook = async (req, res) => {
       await paymentService.verifyPayment(event.data.reference);
     }
 
+    if (event.event === 'charge.failed' || event.event === 'charge.reversed') {
+      const paymentService = require('../payment/payment.service');
+      await paymentService.reversePayment(event.data.reference, event.event);
+    }
+
     res.sendStatus(200);
   } catch (error) {
     console.error('Webhook processing error:', error);

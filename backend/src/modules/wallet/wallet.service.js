@@ -84,10 +84,42 @@ class WalletService {
     wallet.resourcesSold = (wallet.resourcesSold || 0) + 1;
     await wallet.save();
     
+return { wallet, transaction };
+  }
+
+  // Debit wallet for payment reversal
+  async debitWallet(userId, amount, resourceId, paymentReference, description) {
+    const wallet = await this.getOrCreateWallet(userId);
+
+    if (wallet.balance < amount) {
+      console.warn(`Debit wallet: insufficient balance for user ${userId}. Balance: ${wallet.balance}, Attempted debit: ${amount}`);
+      amount = wallet.balance;
+    }
+
+    const transactionRef = `REF_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const transaction = await Transaction.create({
+      user: userId,
+      wallet: wallet._id,
+      type: 'debit',
+      category: 'refund',
+      amount,
+      currency: wallet.currency,
+      status: 'completed',
+      reference: transactionRef,
+      description: description || `Reversed payment refund`,
+      metadata: { resourceId, paymentReference, reversed: true },
+      completedAt: new Date()
+    });
+
+    wallet.balance = wallet.balance - amount;
+    wallet.totalEarned = wallet.totalEarned - amount;
+    await wallet.save();
+
     return { wallet, transaction };
   }
 
-// Get wallet details
+  // Get wallet details
   async getWallet(userId) {
     const wallet = await this.getOrCreateWallet(userId);
 
