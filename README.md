@@ -10,7 +10,7 @@ A production-ready backend for a career resource marketplace.
 - bcryptjs for password hashing
 - Paystack for payment processing
 - Cloudinary for file storage
-- node-cron for scheduled payment reconciliation
+- BullMQ with Redis for background job processing (replaces node-cron)
 
 ## Getting Started
 
@@ -159,7 +159,7 @@ npm run dev
 
 ### Payment Reconciliation (Background Process)
 
-A `node-cron` job runs every 5 minutes to reconcile pending payments:
+A `BullMQ` worker with Redis processes pending payments every 5 minutes to:
 
 - Checks all `pending` payments against Paystack's API
 - If Paystack confirms success, updates payment to `success` and credits the seller's wallet
@@ -178,6 +178,273 @@ When a bank reverses a charge, Paystack sends `charge.failed` or `charge.reverse
 ### Idempotency
 
 Payment initialization uses an idempotency key (`SHA256(userId:itemId:itemType)`) to prevent duplicate pending payments. If a user clicks "Buy" again while a pending payment exists, the system returns the existing payment reference instead of creating a new one.
+
+---
+
+## **Analytics** (`/analytics`)
+
+The analytics module provides three sections of user analytics:
+
+### 1. Stats Overview (`GET /analytics/stats`)
+
+Returns 4 summary cards with trend data for a selected time period.
+
+**Query Parameters:**
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `period` | string | Time range: `7days`, `30days`, `90days`, `all` | `30days` |
+
+**Request:**
+
+```bash
+GET /api/v1/analytics/stats?period=30days
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "earnings": 45000.00,
+    "downloads": 128,
+    "saves": 34,
+    "confidence": 0.78,
+    "period": "30days"
+  }
+}
+```
+
+**Field Descriptions:**
+
+- `earnings` — Total revenue from successful payments for your resources in the selected period
+- `downloads` — Total download count across your resources (for `7days` period, counts downloads of resources created in that window; for other periods, it's cumulative)
+- `saves` — Number of times users saved your resources in the selected period
+- `confidence` — Average confidence score across your resources in the selected period (0 to 1)
+
+---
+
+### 2. Overall Performance (`GET /analytics/performance`)
+
+Returns monthly aggregated data for a line graph showing Earnings, Downloads, and Saves over time.
+
+**Query Parameters:**
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `period` | string | Time range: `7days`, `30days`, `90days`, `all` | `30days` |
+
+**Request:**
+
+```bash
+GET /api/v1/analytics/performance?period=90days
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "labels": ["Jul 2026", "Aug 2026"],
+    "earnings": [15000.00, 30000.00],
+    "downloads": [45, 83],
+    "saves": [12, 22]
+  }
+}
+```
+
+**Field Descriptions:**
+
+- `labels` — Month labels for the x-axis of the line graph
+- `earnings` — Total earnings per month (matches the order of `labels`)
+- `downloads` — Total downloads per month (matches the order of `labels`)
+- `saves` — Total saves per month (matches the order of `labels`)
+
+**Note:** For the `7days` period, labels are daily (e.g., `"Jul 28"`, `"Jul 29"`) and data is aggregated by day. For `30days`, `90days`, and `all`, labels are monthly and data is aggregated by month.
+
+---
+
+### 3. Product Performance (`GET /analytics/products`)
+
+Returns a paginated table of your resources with key metrics for each product. Supports search and sorting.
+
+**Query Parameters:**
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `search` | string | Search by resource name (case-insensitive) | - |
+| `sortBy` | string | Sort field: `downloads` | `downloads` |
+| `order` | string | Sort order: `desc` or `asc` | `desc` |
+| `page` | number | Page number | `1` |
+| `limit` | number | Items per page | `20` |
+
+**Request:**
+
+```bash
+GET /api/v1/analytics/products?search=AWS&sortBy=downloads&order=desc&page=1&limit=10
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "data": [
+      {
+        "type": "Resource",
+        "name": "AWS Certified Solutions Architect",
+        "category": "Software Development",
+        "earnings": 25000.00,
+        "downloads": 85,
+        "saves": 18,
+        "views": 320,
+        "confidence": 0.85
+      },
+      {
+        "type": "Resource",
+        "name": "React Performance Optimization",
+        "category": "Software Development",
+        "earnings": 12000.00,
+        "downloads": 43,
+        "saves": 12,
+        "views": 156,
+        "confidence": 0.72
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 2,
+      "pages": 1
+    }
+  }
+}
+```
+
+**Field Descriptions:**
+
+- `type` — Always `"Resource"` (for future pathway support)
+- `name` — Resource title
+- `category` — Resource category/industry
+- `earnings` — Total revenue from successful payments for this resource
+- `downloads` — Total download count for this resource
+- `saves` — Number of times users saved this resource
+- `views` — Total view count for this resource
+- `confidence` — Confidence score (0 to 1) based on ratings, verification, and recency
+
+**Sorting:**
+
+- `sortBy=downloads&order=desc` — Highest downloads first
+- `sortBy=downloads&order=asc` — Least downloads first
+
+---
+
+### 4. Export PDF Report (`GET /analytics/export/pdf`)
+
+Generates and downloads a PDF report containing all analytics data for the selected period.
+
+**Query Parameters:**
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `period` | string | Time range: `7days`, `30days`, `90days`, `all` | `30days` |
+
+**Request:**
+
+```bash
+GET /api/v1/analytics/export/pdf?period=30days
+Authorization: Bearer <access_token>
+```
+
+**Response:** PDF file download with the following sections:
+1. **Stats Overview** — Earnings, Downloads, Saves, Avg. Confidence
+2. **Overall Performance** — Monthly breakdown of Earnings, Downloads, and Saves
+3. **Product Performance** — Table of all resources with metrics
+
+---
+
+### Analytics Flow Diagram
+
+```
+User requests analytics
+        │
+        ▼
+┌───────────────────────────────────────────────────┐
+│              Analytics Service                     │
+│                                                    │
+│  ┌─────────────┐  ┌──────────────┐  ┌──────────┐ │
+│  │   Stats      │  │  Performance │  │ Products │ │
+│  │   (cards)    │  │  (line graph)│  │ (table)  │ │
+│  └──────┬───────┘  └──────┬───────┘  └────┬─────┘ │
+│         │                  │                │        │
+│         ▼                  ▼                ▼        │
+│  ┌─────────────────────────────────────────────────┐ │
+│  │              MongoDB Aggregations                │ │
+│  │  • Payment collection (earnings)                │ │
+│  │  • Resource collection (downloads, confidence)  │ │
+│  │  • Interaction collection (saves)               │ │
+│  └─────────────────────────────────────────────────┘ │
+│                                                    │
+│  ┌─────────────────────────────────────────────────┐ │
+│  │              PDF Export (pdfkit)                 │ │
+│  │  Generates a downloadable PDF report            │ │
+│  └─────────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────┘
+```
+
+### 4. Export PDF Report (`GET /analytics/export/pdf`)
+
+Generates and downloads a PDF report containing all analytics data for the selected period.
+
+**Query Parameters:**
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `period` | string | Time range: `7days`, `30days`, `90days`, `all` | `30days` |
+
+**Request:**
+
+```bash
+GET /api/v1/analytics/export/pdf?period=30days
+Authorization: Bearer <access_token>
+```
+
+**Response:** PDF file download with the following sections:
+1. **Stats Overview** — Earnings, Downloads, Saves, Avg. Confidence
+2. **Overall Performance** — Monthly breakdown of Earnings, Downloads, and Saves
+3. **Product Performance** — Table of all resources with metrics
+
+---
+
+### 5. Export PNG Chart (`GET /analytics/export/png`)
+
+Generates and downloads a PNG image of the overall performance line graph for the selected period.
+
+**Query Parameters:**
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `period` | string | Time range: `7days`, `30days`, `90days`, `all` | `30days` |
+
+**Request:**
+
+```bash
+GET /api/v1/analytics/export/png?period=90days
+Authorization: Bearer <access_token>
+```
+
+**Response:** PNG image file containing a line graph with three datasets:
+- **Earnings ($)** — left y-axis (green line)
+- **Downloads** — right y-axis (red line)
+- **Saves** — right y-axis (blue line)
+
+The chart includes a title, legend, and dual y-axes for earnings (left) and downloads/saves (right).
 
 ---
 
