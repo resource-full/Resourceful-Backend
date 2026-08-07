@@ -76,6 +76,7 @@ npm run dev
 | ------ | ------------------------------ | ---------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | POST   | `/resources`                   | Create new resource                | Yes                         | FormData: `{ name, description, resourceFile, coverPhoto, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
 | GET    | `/resources`                   | Get all resources (paginated)      | No                          | Query: `?page=1&limit=10&industry=Software Development&experience=Professional&isFree=true&search=javascript&sort=-confidenceScore`         |
+| GET    | `/resources/filters`           | Get filter options with counts     | No                          | Query: `?country=Nigeria&industry=Software Development&experience=Undergraduate` (all optional)                                            |
 | GET    | `/resources/my`                | Get authenticated user's resources | Yes                         | Query: `?page=1&limit=10&status=draft`                                                                                                      |
 | GET    | `/resources/:id`               | Get single resource details        | No (public) / Yes (private) | -                                                                                                                                           |
 | PUT    | `/resources/:id`               | Update resource                    | Yes (owner/collaborator)    | FormData: `{ name, description, resourceFile, coverPhoto, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
@@ -96,6 +97,7 @@ npm run dev
 | ------ | ------------------------------- | --------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | POST   | `/pathways`                     | Create new pathway                | Yes                         | `{ name, description, blocks, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
 | GET    | `/pathways`                     | Get all pathways (paginated)      | No                          | Query: `?page=1&limit=10&industry=Software Development&experience=Professional&search=backend`                  |
+| GET    | `/pathways/filters`             | Get filter options with counts    | No                          | Query: `?country=Nigeria&industry=Software Development&experience=Undergraduate` (all optional)                 |
 | GET    | `/pathways/:id`                 | Get single pathway details        | No (public) / Yes (private) | -                                                                                                               |
 | GET    | `/pathways/user/my`             | Get authenticated user's pathways | Yes                         | Query: `?page=1&limit=10&status=draft`                                                                          |
 | PUT    | `/pathways/:id`                 | Update pathway                    | Yes (owner only)            | `{ name, description, blocks, applicableLocation, experience, industry, isFree, price, currency, tags, hubId }` |
@@ -113,6 +115,7 @@ npm run dev
 | ------ | --------------------------------- | ----------------------------- | --------------------------- | -------------------------------------------------------------------------------------- |
 | POST   | `/hubs`                           | Create new hub                | Yes                         | `{ name, description, applicableLocation, experience, industry, resources, pathways }` |
 | GET    | `/hubs`                           | Get all hubs (paginated)      | No                          | Query: `?page=1&limit=10&industry=Software Development&search=career`                  |
+| GET    | `/hubs/filters`                   | Get filter options with counts| No                          | Query: `?country=Nigeria&industry=Software Development&experience=Undergraduate` (all optional) |
 | GET    | `/hubs/my`                        | Get authenticated user's hubs | Yes                         | Query: `?page=1&limit=10&status=draft`                                                 |
 | GET    | `/hubs/:id`                       | Get single hub details        | No (public) / Yes (private) | -                                                                                      |
 | PUT    | `/hubs/:id`                       | Update hub                    | Yes (owner only)            | `{ name, description, applicableLocation, experience, industry }`                      |
@@ -122,6 +125,59 @@ npm run dev
 | DELETE | `/hubs/:id/resources/:resourceId` | Remove resource from hub      | Yes (owner only)            | -                                                                                      |
 | POST   | `/hubs/:id/pathways/:pathwayId`   | Add pathway to hub            | Yes (owner only)            | -                                                                                      |
 | DELETE | `/hubs/:id/pathways/:pathwayId`   | Remove pathway from hub       | Yes (owner only)            | -                                                                                      |
+
+---
+
+## **Explore** (`/explore`)
+
+Single dashboard/feed endpoint that fetches publicly available resources, pathways, and hubs in one request, along with filter options. Designed for infinite scroll on the frontend.
+
+| Method | Endpoint    | Description                            | Auth Required | Query Params |
+| ------ | ----------- | -------------------------------------- | ------------- | ------------ |
+| GET    | `/explore`  | Get public feed (resources, pathways, hubs, filters) | No            | `limit`, `cursor`, `country`, `industry`, `experience`, `isFree`, `search` |
+
+**Query Parameters:**
+
+| Parameter  | Type    | Description                                        |
+| ---------- | ------- | -------------------------------------------------- |
+| `limit`    | number  | Items per collection per request (default: 50, max: 100) |
+| `cursor`   | string  | ISO timestamp from `nextCursor` for the next scroll (omit for first page) |
+| `country`  | string  | Filter by applicable location (e.g. `Nigeria`)     |
+| `industry` | string  | Filter by industry (e.g. `Software Development`)   |
+| `experience` | string | Filter by experience level (e.g. `Undergraduate`)  |
+| `isFree`   | boolean | `true` (free) or `false` (paid)                    |
+| `search`   | string  | Text search across names/descriptions/tags         |
+
+**Example:**
+```bash
+GET /api/v1/explore?limit=50&industry=Software Development&isFree=true
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "resources": [{ ... }],
+    "pathways": [{ ... }],
+    "hubs": [{ ... }],
+    "filters": {
+      "countries": [{ "value": "Worldwide", "count": 12 }],
+      "industries": [{ "value": "Software Development", "count": 12 }],
+      "experiences": [{ "value": "Undergraduate", "count": 8 }],
+      "pricing": [{ "value": "Free", "count": 9 }, { "value": "Paid", "count": 3 }]
+    },
+    "nextCursor": "2026-08-07T10:00:00.000Z"
+  }
+}
+```
+
+**Notes:**
+- Each collection (`resources`, `pathways`, `hubs`) returns up to `limit` items, newest first. For a merged feed, combine them client-side and sort by `createdAt`.
+- `filters` is only returned on the first request (no `cursor`); it contains counts aggregated across all three collections, scoped to any `country`/`industry`/`experience`/`isFree` params.
+- For infinite scroll, pass the returned `nextCursor` as the `cursor` param on subsequent requests. When `nextCursor` is `null`, there is no more data.
+- `pricing` applies to resources and pathways only (hubs have no pricing field).
 
 ---
 
@@ -899,6 +955,45 @@ Content-Type: application/json
 ```
 
 **Note:** The `counts` field is returned by the `GET /resources`, `GET /pathways`, and `GET /hubs` list endpoints. It contains the total counts of publicly available resources, pathways, and hubs (filtered to `status: "public"` and not deleted), regardless of pagination or other filters applied to the list itself.
+
+### Filter Endpoints (`/resources/filters`, `/pathways/filters`, `/hubs/filters`)
+
+Returns the distinct filter options available for publicly available items, each with its count. Query params are optional and narrow the counts for the other options:
+
+- `country` — Filters by applicable location (e.g. `Nigeria`)
+- `industry` — Filters by industry (e.g. `Software Development`)
+- `experience` — Filters by experience level (e.g. `Undergraduate`)
+- `isFree` — Filters by pricing: `true` (free) or `false` (paid) — resources and pathways only (hubs have no pricing field)
+
+**Example:**
+```bash
+GET /api/resources/filters?industry=Software Development&isFree=true
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "countries": [
+      { "value": "Worldwide", "count": 12 },
+      { "value": "Nigeria", "count": 5 }
+    ],
+    "industries": [
+      { "value": "Software Development", "count": 12 }
+    ],
+    "experiences": [
+      { "value": "Undergraduate", "count": 8 },
+      { "value": "Professional (above 6 years)", "count": 4 }
+    ],
+    "pricing": [
+      { "value": "Free", "count": 9 },
+      { "value": "Paid", "count": 3 }
+    ]
+  }
+}
+```
 
 ### Error Response
 
