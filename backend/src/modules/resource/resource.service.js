@@ -1,6 +1,7 @@
 const Resource = require('./resource.model');
 const User = require('../user/user.model');
 const Hub = require('../hub/hub.model');
+const Pathway = require('../pathway/pathway.model');
 const Interaction = require('../interaction/interaction.model');
 const NotificationService = require('../notification/notification.service');
 const Payment = require('../payment/payment.model');
@@ -118,7 +119,7 @@ class ResourceService {
       filter.$text = { $search: search };
     }
     
-    const [resources, total] = await Promise.all([
+    const [resources, total, totalPublicResources, totalPublicPathways, totalPublicHubs] = await Promise.all([
       Resource.find(filter)
         .populate('owner', 'name email avatar')
         .populate('hub', 'name')
@@ -126,11 +127,19 @@ class ResourceService {
         .limit(limit)
         .skip(skip)
         .sort(sort),
-      Resource.countDocuments(filter)
+      Resource.countDocuments(filter),
+      Resource.countDocuments({ status: 'public', isDeleted: false }),
+      Pathway.countDocuments({ status: 'public', isDeleted: false }),
+      Hub.countDocuments({ status: 'public', isDeleted: false })
     ]);
     
     return {
       resources,
+      counts: {
+        resources: totalPublicResources,
+        pathways: totalPublicPathways,
+        hubs: totalPublicHubs
+      },
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),

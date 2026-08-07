@@ -90,7 +90,7 @@ class HubService {
       filter.$text = { $search: search };
     }
     
-    const [hubs, total] = await Promise.all([
+    const [hubs, total, totalPublicResources, totalPublicPathways, totalPublicHubs] = await Promise.all([
       Hub.find(filter)
         .populate('owner', 'name email avatar')
         .populate('resources', 'name coverPhoto')
@@ -98,11 +98,19 @@ class HubService {
         .limit(limit)
         .skip(skip)
         .sort(sort),
-      Hub.countDocuments(filter)
+      Hub.countDocuments(filter),
+      Resource.countDocuments({ status: 'public', isDeleted: false }),
+      Pathway.countDocuments({ status: 'public', isDeleted: false }),
+      Hub.countDocuments({ status: 'public', isDeleted: false })
     ]);
     
     return {
       hubs,
+      counts: {
+        resources: totalPublicResources,
+        pathways: totalPublicPathways,
+        hubs: totalPublicHubs
+      },
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),

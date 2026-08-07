@@ -95,7 +95,7 @@ class PathwayService {
       filter.$text = { $search: search };
     }
     
-    const [pathways, total] = await Promise.all([
+    const [pathways, total, totalPublicResources, totalPublicPathways, totalPublicHubs] = await Promise.all([
       Pathway.find(filter)
         .populate('author', 'name email avatar')
         .populate('blocks.resource', 'name coverPhoto industry experience peerRatings')
@@ -103,11 +103,19 @@ class PathwayService {
         .limit(limit)
         .skip(skip)
         .sort(sort),
-      Pathway.countDocuments(filter)
+      Pathway.countDocuments(filter),
+      Resource.countDocuments({ status: 'public', isDeleted: false }),
+      Pathway.countDocuments({ status: 'public', isDeleted: false }),
+      Hub.countDocuments({ status: 'public', isDeleted: false })
     ]);
     
     return {
       pathways,
+      counts: {
+        resources: totalPublicResources,
+        pathways: totalPublicPathways,
+        hubs: totalPublicHubs
+      },
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
