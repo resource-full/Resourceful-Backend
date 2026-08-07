@@ -29,6 +29,11 @@ class HubController {
     res.status(200).json({ success: true, data: result });
   });
   
+  getHubFilters = asyncHandler(async (req, res) => {
+    const result = await hubService.getFilters(req.query);
+    res.status(200).json({ success: true, data: result });
+  });
+  
   getMyHubs = asyncHandler(async (req, res) => {
     const result = await hubService.getMyHubs(req.user._id, req.query);
     res.status(200).json({ success: true, data: result });

@@ -20,6 +20,7 @@ const notificationRoutes = require('./modules/notification/notification.routes')
 const walletRoutes = require('./modules/wallet/wallet.routes');
 const walletWebhookRoutes = require('./modules/wallet/webhook.routes');
 const analyticsRoutes = require('./modules/analytics/analytics.routes');
+const exploreRoutes = require('./modules/explore/explore.routes');
 
 const app = express();
 
@@ -110,6 +111,7 @@ app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/wallet', walletRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/explore', exploreRoutes);
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({

@@ -59,6 +59,45 @@ class PathwayService {
     ]);
   }
   
+  async getFilters(query = {}) {
+    const { country, industry, experience, isFree } = query;
+    const scope = { status: 'public', isDeleted: false };
+    if (country) scope.applicableLocation = country;
+    if (industry) scope.industry = industry;
+    if (experience) scope.experience = experience;
+    if (isFree !== undefined) scope.isFree = isFree === 'true';
+
+    const run = (field) => Pathway.aggregate([
+      { $match: scope },
+      { $match: { [field]: { $exists: true, $ne: null, $ne: '' } } },
+      { $group: { _id: `$${field}`, count: { $sum: 1 } } },
+      { $project: { _id: 0, value: '$_id', count: 1 } },
+      { $sort: { value: 1 } }
+    ]);
+
+    const [countries, industries, experiences, pricing] = await Promise.all([
+      run('applicableLocation'),
+      run('industry'),
+      run('experience'),
+      Pathway.aggregate([
+        { $match: scope },
+        { $group: { _id: '$isFree', count: { $sum: 1 } } },
+        {
+          $project: {
+            _id: 0,
+            value: {
+              $cond: [{ $eq: ['$_id', true] }, 'Free', 'Paid']
+            },
+            count: 1
+          }
+        },
+        { $sort: { value: 1 } }
+      ])
+    ]);
+
+    return { countries, industries, experiences, pricing };
+  }
+
   async getPathways(query = {}, userId = null) {
     const {
       page = 1, limit = 10, industry, experience, applicableLocation,

@@ -9,6 +9,7 @@ router.get('/my', protect, hubController.getMyHubs);
 
 // Public routes
 router.get('/', hubController.getHubs);
+router.get('/filters', hubController.getHubFilters);
 router.get('/:id', hubController.getHubById);
 
 // Protected routes

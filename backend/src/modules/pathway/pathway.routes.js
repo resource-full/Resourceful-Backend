@@ -9,6 +9,7 @@ router.get('/user/my', protect, pathwayController.getUserPathways);
 
 // Public routes
 router.get('/', pathwayController.getPathways);
+router.get('/filters', pathwayController.getPathwayFilters);
 router.get('/:id', pathwayController.getPathwayById);
 
 // Protected routes

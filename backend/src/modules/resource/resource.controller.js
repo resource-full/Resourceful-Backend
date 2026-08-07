@@ -43,6 +43,15 @@ class ResourceController {
     });
   });
   
+  getResourceFilters = asyncHandler(async (req, res) => {
+    const result = await resourceService.getFilters(req.query);
+    
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  });
+  
   getResourceById = asyncHandler(async (req, res) => {
     const userId = this.getUserId(req);
     const resource = await resourceService.getResourceById(req.params.id, userId);

@@ -57,6 +57,30 @@ class HubService {
     ]);
   }
   
+  async getFilters(query = {}) {
+    const { country, industry, experience } = query;
+    const scope = { status: 'public', isDeleted: false };
+    if (country) scope.applicableLocation = country;
+    if (industry) scope.industry = industry;
+    if (experience) scope.experience = experience;
+
+    const run = (field) => Hub.aggregate([
+      { $match: scope },
+      { $match: { [field]: { $exists: true, $ne: null, $ne: '' } } },
+      { $group: { _id: `$${field}`, count: { $sum: 1 } } },
+      { $project: { _id: 0, value: '$_id', count: 1 } },
+      { $sort: { value: 1 } }
+    ]);
+
+    const [countries, industries, experiences] = await Promise.all([
+      run('applicableLocation'),
+      run('industry'),
+      run('experience')
+    ]);
+
+    return { countries, industries, experiences };
+  }
+
   async getHubs(query = {}, userId = null) {
     const {
       page = 1,

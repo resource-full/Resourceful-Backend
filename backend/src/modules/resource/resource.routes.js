@@ -7,6 +7,7 @@ const router = express.Router();
 
 // Public routes (no auth required)
 router.get('/', resourceController.getResources);
+router.get('/filters', resourceController.getResourceFilters);
 router.get('/:id', resourceController.getResourceById);
 
 // My resources (needs auth, must be before protected routes with /:id patterns)

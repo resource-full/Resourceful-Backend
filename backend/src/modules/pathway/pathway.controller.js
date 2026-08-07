@@ -41,6 +41,15 @@ class PathwayController {
     });
   });
   
+  getPathwayFilters = asyncHandler(async (req, res) => {
+    const result = await pathwayService.getFilters(req.query);
+    
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  });
+  
   getPathwayById = asyncHandler(async (req, res) => {
     const userId = this.getUserId(req);
     const pathway = await pathwayService.getPathwayById(req.params.id, userId);
