@@ -883,6 +883,11 @@ Content-Type: application/json
   "success": true,
   "data": {
     "resources": [...],
+    "counts": {
+      "resources": 45,
+      "pathways": 12,
+      "hubs": 8
+    },
     "pagination": {
       "page": 1,
       "limit": 10,
@@ -892,6 +897,8 @@ Content-Type: application/json
   }
 }
 ```
+
+**Note:** The `counts` field is returned by the `GET /resources`, `GET /pathways`, and `GET /hubs` list endpoints. It contains the total counts of publicly available resources, pathways, and hubs (filtered to `status: "public"` and not deleted), regardless of pagination or other filters applied to the list itself.
 
 ### Error Response
 
