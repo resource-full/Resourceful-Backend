@@ -3,6 +3,8 @@ const { generateTokens, verifyRefreshToken } = require('../../utils/generateToke
 const ApiError = require('../../utils/apiError');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const emailService = require('../../services/email.service');
+const config = require('../../config/env');
 
 class AuthService {
   async register(userData) {
@@ -186,28 +188,89 @@ class AuthService {
   }
   
   async forgotPassword(email) {
+    // Always return success to avoid revealing if email exists
+    // This is a security best practice
     const user = await User.findOne({ email, authProvider: 'local' });
     
+    // If user doesn't exist or uses social login, return success without doing anything
     if (!user) {
-      throw new ApiError(404, 'User not found or account uses social login');
+      console.log(`Password reset requested for non-existent email: ${email.replace(/(.{2}).*@/, '$1***@')}`);
+      return { message: 'If an account exists with this email, a password reset link has been sent' };
     }
     
-    // Generate reset token
+    // Generate secure reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
-    
-    user.passwordResetToken = crypto
+    const hashedToken = crypto
       .createHash('sha256')
       .update(resetToken)
       .digest('hex');
     
-    user.passwordResetExpire = new Date(Date.now() + 10 * 60 * 1000);
+    // Set expiration to 15 minutes (900000 ms) - within 15-30 minute requirement
+    const expirationMinutes = 15;
+    user.passwordResetToken = hashedToken;
+    user.passwordResetExpire = new Date(Date.now() + expirationMinutes * 60 * 1000);
     
     await user.save({ validateBeforeSave: false });
     
-    return { message: 'Password reset token generated' };
+    // Construct reset URL using FRONTEND_DOMAIN
+    const frontendDomain = config.FRONTEND_DOMAIN || process.env.CLIENT_URL || process.env.CLIENT_URLS?.split(',')[0];
+    if (!frontendDomain) {
+      console.error('FRONTEND_DOMAIN not configured for password reset email');
+      throw new ApiError(500, 'Email configuration error');
+    }
+    
+    const resetUrl = `${frontendDomain.replace(/\/$/, '')}/reset-password?token=${resetToken}`;
+    
+    try {
+      // Send password reset email
+      await emailService.sendPasswordResetEmail(user.email, resetUrl, expirationMinutes);
+      
+      console.log(`Password reset email sent to ${user.email.replace(/(.{2}).*@/, '$1***@')}`);
+      
+      // Development fallback: return reset link if enabled
+      const returnResetLink = process.env.RETURN_RESET_LINK_IN_RESPONSE === 'true';
+      if (returnResetLink && process.env.NODE_ENV !== 'production') {
+        return { 
+          message: 'If an account exists with this email, a password reset link has been sent',
+          resetLink: resetUrl,
+          resetToken: resetToken // Only in development
+        };
+      }
+      
+      return { message: 'If an account exists with this email, a password reset link has been sent' };
+      
+    } catch (emailError) {
+      // Log error without exposing secrets
+      console.error(
+        `Failed to send password reset email to ${user.email.replace(/(.{2}).*@/, '$1***@')}:`,
+        emailError.message
+      );
+      
+      // In production, fail clearly if email is not configured
+      if (process.env.NODE_ENV === 'production') {
+        // Invalidate the token since email failed
+        user.passwordResetToken = undefined;
+        user.passwordResetExpire = undefined;
+        await user.save({ validateBeforeSave: false });
+        
+        throw new ApiError(500, 'Failed to send password reset email. Please try again later.');
+      }
+      
+      // In development, still return success but log the issue
+      return { message: 'If an account exists with this email, a password reset link has been sent' };
+    }
   }
 
   async resetPassword(resetToken, newPassword) {
+    // Validate inputs
+    if (!resetToken) {
+      throw new ApiError(400, 'Reset token is required');
+    }
+    
+    if (!newPassword || newPassword.length < 6) {
+      throw new ApiError(400, 'Password must be at least 6 characters');
+    }
+    
     const hashedToken = crypto
       .createHash('sha256')
       .update(resetToken)
@@ -220,15 +283,23 @@ class AuthService {
     }).select('+password');
     
     if (!user) {
+      // Don't reveal if token is invalid or expired specifically
       throw new ApiError(400, 'Invalid or expired reset token');
     }
     
+    // Update password and invalidate token
     user.password = newPassword;
     user.passwordResetToken = undefined;
     user.passwordResetExpire = undefined;
     user.passwordChangedAt = new Date();
     
+    // Reset login attempts if password reset
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+    
     await user.save();
+    
+    console.log(`Password successfully reset for user: ${user.email.replace(/(.{2}).*@/, '$1***@')}`);
     
     return { message: 'Password reset successful' };
   }

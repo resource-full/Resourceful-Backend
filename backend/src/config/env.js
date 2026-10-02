@@ -21,6 +21,15 @@ module.exports = {
   
   CLIENT_URL: process.env.CLIENT_URL,
   CLIENT_URLS: process.env.CLIENT_URLS ? process.env.CLIENT_URLS.split(',') : [],
+  
+  // Email Configuration
+  SMTP_HOST: process.env.SMTP_HOST,
+  SMTP_PORT: process.env.SMTP_PORT,
+  SMTP_SECURE: process.env.SMTP_SECURE,
+  SMTP_USER: process.env.SMTP_USER,
+  SMTP_PASS: process.env.SMTP_PASS,
+  SMTP_FROM: process.env.SMTP_FROM,
+  FRONTEND_DOMAIN: process.env.FRONTEND_DOMAIN || process.env.CLIENT_URL,
     
   // Paystack Configuration
   PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
