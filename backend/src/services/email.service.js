@@ -176,6 +176,5 @@ ResourceFull Team
 module.exports = {
   sendEmail,
   sendPasswordResetEmail,
-  getTransporter,
   validateEmailConfig
 };
