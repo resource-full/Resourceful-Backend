@@ -1,13 +1,10 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const config = require('../config/env');
 
 // Validate email configuration on initialization
 const validateEmailConfig = () => {
   const requiredVars = [
-    'SMTP_HOST',
-    'SMTP_PORT',
-    'SMTP_USER',
-    'SMTP_PASS',
+    'RESEND_API_KEY',
     'SMTP_FROM'
   ];
   
@@ -32,30 +29,21 @@ const validateEmailConfig = () => {
   return true;
 };
 
-// Create transporter lazily to avoid startup failures in dev
-let transporter = null;
+// Initialize Resend client lazily
+let resendClient = null;
 
-const getTransporter = () => {
-  if (transporter) return transporter;
+const getResendClient = () => {
+  if (resendClient) return resendClient;
   
   if (!validateEmailConfig()) {
     return null;
   }
   
   try {
-    transporter = nodemailer.createTransporter({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT, 10),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    });
-    
-    return transporter;
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+    return resendClient;
   } catch (error) {
-    console.error('Failed to create email transporter:', error.message);
+    console.error('Failed to create Resend client:', error.message);
     if (process.env.NODE_ENV === 'production') {
       throw error;
     }
@@ -64,29 +52,39 @@ const getTransporter = () => {
 };
 
 const sendEmail = async ({ to, subject, html, text }) => {
-  const emailTransporter = getTransporter();
+  const resend = getResendClient();
   
-  if (!emailTransporter) {
+  if (!resend) {
     const error = new Error('Email service not configured');
     error.code = 'EMAIL_NOT_CONFIGURED';
     throw error;
   }
   
   try {
-    const mailOptions = {
+    const { data, error } = await resend.emails.send({
       from: process.env.SMTP_FROM,
       to,
       subject,
       html,
       text: text || html.replace(/<[^>]*>/g, '')
-    };
+    });
     
-    const result = await emailTransporter.sendMail(mailOptions);
+    if (error) {
+      console.error(
+        `Email delivery failed to ${to.replace(/(.{2}).*@/, '$1***@')}:`,
+        error.message
+      );
+      
+      const sanitizedError = new Error('Failed to send email');
+      sanitizedError.code = 'EMAIL_SEND_FAILED';
+      sanitizedError.originalError = error.message;
+      throw sanitizedError;
+    }
     
     // Log success without exposing sensitive data
     console.log(`Email sent successfully to ${to.replace(/(.{2}).*@/, '$1***@')}: ${subject}`);
     
-    return result;
+    return { id: data?.id };
   } catch (error) {
     // Log error without exposing secrets
     console.error(

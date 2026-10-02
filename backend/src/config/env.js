@@ -23,11 +23,7 @@ module.exports = {
   CLIENT_URLS: process.env.CLIENT_URLS ? process.env.CLIENT_URLS.split(',') : [],
   
   // Email Configuration
-  SMTP_HOST: process.env.SMTP_HOST,
-  SMTP_PORT: process.env.SMTP_PORT,
-  SMTP_SECURE: process.env.SMTP_SECURE,
-  SMTP_USER: process.env.SMTP_USER,
-  SMTP_PASS: process.env.SMTP_PASS,
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
   SMTP_FROM: process.env.SMTP_FROM,
   FRONTEND_DOMAIN: process.env.FRONTEND_DOMAIN || process.env.CLIENT_URL,
     

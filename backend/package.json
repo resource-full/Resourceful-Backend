@@ -39,7 +39,8 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-linkedin-oauth2": "^2.0.0",
-    "pdfkit": "^0.19.1"
+    "pdfkit": "^0.19.1",
+    "resend": "^6.32.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

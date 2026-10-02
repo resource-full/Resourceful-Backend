@@ -6,12 +6,8 @@
 These variables MUST be set in Render environment variables for password reset to work:
 
 ```bash
-SMTP_HOST=smtp.gmail.com  # or your email provider's SMTP host
-SMTP_PORT=587              # or 465 for SSL, 587 for TLS
-SMTP_SECURE=false          # true for port 465, false for 587
-SMTP_USER=your-email@gmail.com  # Your email address
-SMTP_PASS=your-app-password     # App-specific password, NOT your regular password
-SMTP_FROM=noreply@resourcefull.com  # From address for emails
+RESEND_API_KEY=re_your_resend_api_key_here
+SMTP_FROM=noreply@resourcefull.store
 FRONTEND_DOMAIN=https://resourcefull-v2.vercel.app  # Frontend URL for reset links
 ```
 
@@ -22,21 +18,23 @@ RETURN_RESET_LINK_IN_RESPONSE=false  # Set to true for development only
 
 ## Important Notes
 
-### For Gmail:
-1. Enable 2-Factor Authentication
-2. Generate an App Password: https://myaccount.google.com/apppasswords
-3. Use the App Password as SMTP_PASS, NOT your regular Gmail password
-
-### For Other Providers:
-- SMTP settings vary by provider
-- Common ports: 587 (TLS), 465 (SSL), 25 (standard)
-- Check your provider's documentation for correct settings
+### Resend Setup:
+1. Sign up at resend.com
+2. Add your domain (e.g., resourcefull.store) and verify with DNS records
+3. Create an API key in Resend dashboard
+4. Use the API key as RESEND_API_KEY
+5. SMTP_FROM must be a verified domain email address
 
 ### Security:
-- NEVER commit email credentials to git
+- NEVER commit RESEND_API_KEY to git
 - Use Render's environment variables for sensitive data
-- SMTP_PASS should be an app-specific password, not your main password
-- Emails are sent from SMTP_FROM which should be a valid domain you control
+- SMTP_FROM must be a verified domain in Resend
+- Domain verification ensures good deliverability
+
+### Resend Free Tier:
+- 100 emails/day
+- 3,000 emails/month
+- Perfect for password resets
 
 ### Behavior:
 - In PRODUCTION: Email service MUST be configured or password reset will fail with clear error
