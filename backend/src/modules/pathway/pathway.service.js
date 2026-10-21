@@ -441,17 +441,62 @@ async getPathwayById(pathwayId, userId = null) {
     const { page = 1, limit = 10, status } = query;
     
     const skip = (page - 1) * limit;
-    const filter = { author: userId, isDeleted: false };
+    const filter = { author: new mongoose.Types.ObjectId(userId), isDeleted: false };
     
     if (status) filter.status = status;
-    
+
+    const pipeline = [
+      { $match: filter },
+      { $sort: { updatedAt: -1 } },
+      { $skip: skip },
+      { $limit: parseInt(limit) },
+      {
+        $lookup: {
+          from: 'hubs',
+          localField: 'hub',
+          foreignField: '_id',
+          as: 'hub',
+          pipeline: [{ $project: { name: 1 } }]
+        }
+      },
+      { $unwind: { path: '$hub', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: '$blocks', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'resources',
+          localField: 'blocks.resource',
+          foreignField: '_id',
+          as: 'blocks.resource',
+          pipeline: [{ $project: { name: 1, coverPhoto: 1 } }]
+        }
+      },
+      {
+        $group: {
+          _id: '$_id',
+          hub: { $first: '$hub' },
+          blocks: { $push: '$blocks' },
+          title: { $first: '$title' },
+          description: { $first: '$description' },
+          status: { $first: '$status' },
+          updatedAt: { $first: '$updatedAt' },
+          createdAt: { $first: '$createdAt' }
+        }
+      },
+      {
+        $addFields: {
+          blocks: {
+            $map: {
+              input: '$blocks',
+              as: 'b',
+              in: { $mergeObjects: ['$$b', { resource: { $arrayElemAt: ['$$b.resource', 0] } }] }
+            }
+          }
+        }
+      }
+    ];
+
     const [pathways, total] = await Promise.all([
-      Pathway.find(filter)
-        .populate('blocks.resource', 'name coverPhoto')
-        .populate('hub', 'name')
-        .limit(limit)
-        .skip(skip)
-        .sort('-updatedAt'),
+      Pathway.aggregate(pipeline),
       Pathway.countDocuments(filter)
     ]);
     

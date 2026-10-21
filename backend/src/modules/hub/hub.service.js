@@ -1,4 +1,5 @@
 // src/modules/hub/hub.service.js
+const mongoose = require('mongoose');
 const Hub = require('./hub.model');
 const Resource = require('../resource/resource.model');
 const Pathway = require('../pathway/pathway.model');
@@ -174,27 +175,55 @@ class HubService {
   }
   
   async getHubById(hubId, userId = null) {
-    const hub = await Hub.findById(hubId)
-      .populate('owner', 'name email avatar')
-      .populate({ path: 'resources', select: 'name description coverPhoto industry experience applicableLocation isFree price currency peerRatings', options: { limit: 100 } })
-      .populate({ path: 'pathways', select: 'name description industry experience applicableLocation isFree price', options: { limit: 100 } })
-      .lean();
-    
-    if (!hub || hub.isDeleted) {
+    const pipeline = [
+      { $match: { _id: new mongoose.Types.ObjectId(hubId), isDeleted: false } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'owner',
+          foreignField: '_id',
+          as: 'owner',
+          pipeline: [{ $project: { name: 1, email: 1, avatar: 1 } }]
+        }
+      },
+      { $unwind: { path: '$owner', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'resources',
+          localField: 'resources',
+          foreignField: '_id',
+          as: 'resources',
+          pipeline: [{ $project: { name: 1, description: 1, coverPhoto: 1, industry: 1, experience: 1, applicableLocation: 1, isFree: 1, price: 1, currency: 1, peerRatings: 1 } }],
+        }
+      },
+      {
+        $lookup: {
+          from: 'pathways',
+          localField: 'pathways',
+          foreignField: '_id',
+          as: 'pathways',
+          pipeline: [{ $project: { name: 1, description: 1, industry: 1, experience: 1, applicableLocation: 1, isFree: 1, price: 1 } }],
+        }
+      }
+    ];
+
+    const [hub] = await Hub.aggregate(pipeline);
+
+    if (!hub) {
       throw new ApiError(404, 'Hub not found');
     }
-    
+
     // Public hubs accessible to everyone
     if (hub.status === 'public') {
       return hub;
     }
-    
+
     // Non-public: must be the owner
-    const ownerId = this.getId(hub.owner);
+    const ownerId = hub.owner && hub.owner._id ? hub.owner._id.toString() : null;
     if (!userId || ownerId !== userId.toString()) {
       throw new ApiError(403, 'You do not have access to this hub');
     }
-    
+
     return hub;
   }
   

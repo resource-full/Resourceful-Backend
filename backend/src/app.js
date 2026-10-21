@@ -4,6 +4,8 @@ const morgan = require('morgan');
 const passport = require('passport');
 const session = require('express-session');
 const errorHandler = require('./middleware/error.middleware');
+let rateLimit;
+try { rateLimit = require('express-rate-limit'); } catch(e) { rateLimit = null; }
 
 // Import passport config
 require('./config/passport');
@@ -48,6 +50,16 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan('dev'));
 
+// Request timing & basic observability
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
+  });
+  next();
+});
+
 // Session middleware - require explicit SESSION_SECRET
 if (!process.env.SESSION_SECRET) {
   console.warn('SESSION_SECRET not set, session cookies will be insecure');
@@ -68,24 +80,40 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Rate limiting for sensitive routes
+if (rateLimit) {
+  const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false });
+  const paymentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
+  app.use('/api/v1/auth', authLimiter);
+  app.use('/api/v1/payments', paymentLimiter);
+  app.use('/api/v1/wallet', paymentLimiter);
+}
+
 // Webhook routes after raw parser
 app.use('/api/v1/webhooks/paystack', walletWebhookRoutes)
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  const lagosTime = new Date().toLocaleString('en-US', { 
-    timeZone: 'Africa/Lagos',
-    dateStyle: 'full',
-    timeStyle: 'long'
-  });
-  
-  res.status(200).json({
-    status: 'success',
-    message: 'ResourceFull API is running',
-    timestamp: new Date().toLocaleString('en-US', { timeZone: 'Africa/Lagos' }),
-    iso: new Date().toISOString(),
-    lagosTime: lagosTime
-  });
+// Health check endpoint with DB ping
+app.get('/health', async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    await mongoose.connection.db.admin().ping();
+    const lagosTime = new Date().toLocaleString('en-US', { 
+      timeZone: 'Africa/Lagos',
+      dateStyle: 'full',
+      timeStyle: 'long'
+    });
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'ResourceFull API is running',
+      db: 'connected',
+      timestamp: new Date().toLocaleString('en-US', { timeZone: 'Africa/Lagos' }),
+      iso: new Date().toISOString(),
+      lagosTime: lagosTime
+    });
+  } catch (e) {
+    res.status(503).json({ status: 'error', message: 'DB unavailable', error: e.message });
+  }
 });
 
 // API Routes
