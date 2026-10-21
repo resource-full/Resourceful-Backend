@@ -186,18 +186,15 @@ class PaymentService {
       ]
     });
 
+    const CONCURRENCY = 5;
     let reconciled = 0;
     let failed = 0;
 
-    for (const payment of pendingPayments) {
+    const processPayment = async (payment) => {
       try {
         const response = await axios.get(
           `${PAYSTACK_BASE_URL}/transaction/verify/${payment.reference}`,
-          {
-            headers: {
-              Authorization: `Bearer ${PAYSTACK_SECRET}`
-            }
-          }
+          { headers: { Authorization: `Bearer ${PAYSTACK_SECRET}` } }
         );
 
         if (response.data.data.status === 'success') {
@@ -223,16 +220,27 @@ class PaymentService {
               payment.reference
             );
           }
-
-          reconciled++;
+          return { status: 'reconciled' };
         } else {
           payment.status = 'failed';
           payment.paystackResponse = response.data.data;
           await payment.save();
-          failed++;
+          return { status: 'failed' };
         }
       } catch (error) {
         await this._handleRetry(payment, error);
+        return { status: 'retry' };
+      }
+    };
+
+    for (let i = 0; i < pendingPayments.length; i += CONCURRENCY) {
+      const batch = pendingPayments.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(batch.map(p => processPayment(p)));
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          if (r.value.status === 'reconciled') reconciled++;
+          if (r.value.status === 'failed') failed++;
+        }
       }
     }
 
@@ -250,14 +258,22 @@ class PaymentService {
       ]
     });
 
+    const CONCURRENCY = 5;
     let retried = 0;
 
-    for (const payment of paymentsToRetry) {
-      try {
-        await this._retryPayment(payment);
-        retried++;
-      } catch (error) {
-        console.error(`Retry failed for payment ${payment.reference}:`, error.message);
+    for (let i = 0; i < paymentsToRetry.length; i += CONCURRENCY) {
+      const batch = paymentsToRetry.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(batch.map(async (payment) => {
+        try {
+          await this._retryPayment(payment);
+          return true;
+        } catch (error) {
+          console.error(`Retry failed for payment ${payment.reference}:`, error.message);
+          return false;
+        }
+      }));
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value) retried++;
       }
     }
 

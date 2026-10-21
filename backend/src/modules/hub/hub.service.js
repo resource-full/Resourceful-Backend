@@ -117,11 +117,12 @@ class HubService {
     const [hubs, total, totalPublicResources, totalPublicPathways, totalPublicHubs] = await Promise.all([
       Hub.find(filter)
         .populate('owner', 'name email avatar')
-        .populate('resources', 'name coverPhoto')
-        .populate('pathways', 'name')
+        .populate({ path: 'resources', select: 'name coverPhoto', options: { limit: 20 } })
+        .populate({ path: 'pathways', select: 'name', options: { limit: 20 } })
         .limit(limit)
         .skip(skip)
-        .sort(sort),
+        .sort(sort)
+        .lean(),
       Hub.countDocuments(filter),
       Resource.countDocuments({ status: 'public', isDeleted: false }),
       Pathway.countDocuments({ status: 'public', isDeleted: false }),
@@ -175,8 +176,9 @@ class HubService {
   async getHubById(hubId, userId = null) {
     const hub = await Hub.findById(hubId)
       .populate('owner', 'name email avatar')
-      .populate('resources', 'name description coverPhoto industry experience applicableLocation isFree price currency peerRatings')
-      .populate('pathways', 'name description industry experience applicableLocation isFree price');
+      .populate({ path: 'resources', select: 'name description coverPhoto industry experience applicableLocation isFree price currency peerRatings', options: { limit: 100 } })
+      .populate({ path: 'pathways', select: 'name description industry experience applicableLocation isFree price', options: { limit: 100 } })
+      .lean();
     
     if (!hub || hub.isDeleted) {
       throw new ApiError(404, 'Hub not found');

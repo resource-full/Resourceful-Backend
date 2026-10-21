@@ -8,10 +8,11 @@ class UserService {
   async getProfile(userId) {
     const user = await User.findById(userId)
       .select('-__v -password')
-      .populate('savedResources', 'name coverPhoto industry peerRatings confidenceScore')
-      .populate('createdResources', 'name coverPhoto industry peerRatings confidenceScore status')
-      .populate('followers', 'name email avatar username position')
-      .populate('following', 'name email avatar username position');
+      .populate({ path: 'savedResources', select: 'name coverPhoto industry peerRatings confidenceScore', options: { limit: 100 } })
+      .populate({ path: 'createdResources', select: 'name coverPhoto industry peerRatings confidenceScore status', options: { limit: 100 } })
+      .populate({ path: 'followers', select: 'name email avatar username position', options: { limit: 100 } })
+      .populate({ path: 'following', select: 'name email avatar username position', options: { limit: 100 } })
+      .lean();
     
     if (!user) {
       throw new ApiError(404, 'User not found');
@@ -173,7 +174,8 @@ class UserService {
   async getPublicProfile(userId) {
     const user = await User.findById(userId)
       .select('name username email avatar coverImage bio position shortDescription industry location currentCareer skills socials profileLink profileStatus createdAt')
-      .populate('createdResources', 'name coverPhoto industry peerRatings confidenceScore status');
+      .populate({ path: 'createdResources', select: 'name coverPhoto industry peerRatings confidenceScore status', options: { limit: 100 } })
+      .lean();
     
     if (!user) {
       throw new ApiError(404, 'User not found');

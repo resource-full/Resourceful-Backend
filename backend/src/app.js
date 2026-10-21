@@ -24,27 +24,9 @@ const exploreRoutes = require('./modules/explore/explore.routes');
 
 const app = express();
 
-// Raw body capture for webhook signature verification (must be before express.json())
-app.use('/api/v1/webhooks/paystack', (req, res, next) => {
-  let rawBody = '';
-  req.on('data', chunk => { rawBody += chunk; });
-  req.on('end', () => {
-    req.rawBody = rawBody;
-    next();
-  });
-});
-
-// Body parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(morgan('dev'));
-
-// Webhook routes
-app.use('/api/v1/webhooks/paystack', walletWebhookRoutes)
-
-// CORS
-const allowedOrigins = process.env.CLIENT_URLS 
-  ? process.env.CLIENT_URLS.split(',') 
+// CORS first
+const allowedOrigins = process.env.CLIENT_URLS
+  ? process.env.CLIENT_URLS.split(',').map(o => o.trim())
   : process.env.CLIENT_URL ? [process.env.CLIENT_URL] : [];
 
 app.use(cors({
@@ -52,36 +34,42 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true
 }));
 
-// Body parsing (after webhook route)
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Raw body for Paystack webhook only - must be before JSON parser
+app.use('/api/v1/webhooks/paystack', express.raw({ type: 'application/json', limit: '1mb' }));
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan('dev'));
 
-// Session middleware (required for Google and LinkedIn OAuth)
+// Session middleware - require explicit SESSION_SECRET
+if (!process.env.SESSION_SECRET) {
+  console.warn('SESSION_SECRET not set, session cookies will be insecure');
+}
 app.use(session({
-   secret: process.env.SESSION_SECRET || process.env.JWT_SECRET,
+   secret: process.env.SESSION_SECRET,
    resave: false,
    saveUninitialized: false,
    cookie: {
      secure: process.env.NODE_ENV === 'production',
      httpOnly: true,
+     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
      maxAge: 24 * 60 * 60 * 1000
    }
- }));
-
-// app.use(express.json());
-// app.use(express.urlencoded({ extended: true }));
-// app.use(morgan('dev'));
+}));
 
 // Initialize passport
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Webhook routes after raw parser
+app.use('/api/v1/webhooks/paystack', walletWebhookRoutes)
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -112,6 +100,7 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/wallet', walletRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/explore', exploreRoutes);
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({

@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Wallet = require('./wallet.model');
 const Transaction = require('./transaction.model');
 const User = require('../user/user.model');
@@ -61,12 +62,41 @@ class WalletService {
 
   // Credit wallet after successful sale
   async creditWallet(userId, amount, resourceId, paymentReference) {
-    const wallet = await this.getOrCreateWallet(userId);
-    
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const wallet = await Wallet.findOne({ user: userId }).session(session);
+      if (!wallet) {
+        await session.abortTransaction();
+        session.endSession();
+        const newWallet = await Wallet.create([{ user: userId, currency: 'NGN' }], { session });
+        return this._creditWalletInSession(newWallet[0], amount, resourceId, paymentReference, session);
+      }
+
+      // Idempotency check
+      const existing = await Transaction.findOne({
+        user: userId,
+        category: 'resource_sale',
+        'metadata.paymentReference': paymentReference
+      }).session(session);
+      if (existing) {
+        await session.commitTransaction();
+        session.endSession();
+        return { wallet, transaction: existing, alreadyCredited: true };
+      }
+
+      return this._creditWalletInSession(wallet, amount, resourceId, paymentReference, session);
+    } catch (err) {
+      await session.abortTransaction();
+      session.endSession();
+      throw err;
+    }
+  }
+
+  async _creditWalletInSession(wallet, amount, resourceId, paymentReference, session) {
     const transactionRef = `INC_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const transaction = await Transaction.create({
-      user: userId,
+    const transaction = await Transaction.create([{
+      user: wallet.user,
       wallet: wallet._id,
       type: 'credit',
       category: 'resource_sale',
@@ -77,46 +107,63 @@ class WalletService {
       description: `Income from resource sale`,
       metadata: { resourceId, paymentReference },
       completedAt: new Date()
-    });
-    
+    }], { session });
+
     wallet.balance = wallet.balance + amount;
     wallet.totalEarned = wallet.totalEarned + amount;
     wallet.resourcesSold = (wallet.resourcesSold || 0) + 1;
-    await wallet.save();
-    
-return { wallet, transaction };
+    await wallet.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+    return { wallet, transaction: transaction[0] };
   }
 
   // Debit wallet for payment reversal
   async debitWallet(userId, amount, resourceId, paymentReference, description) {
-    const wallet = await this.getOrCreateWallet(userId);
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const wallet = await Wallet.findOne({ user: userId }).session(session);
+      if (!wallet) {
+        await session.abortTransaction();
+        session.endSession();
+        throw new ApiError(404, 'Wallet not found');
+      }
 
-    if (wallet.balance < amount) {
-      console.warn(`Debit wallet: insufficient balance for user ${userId}. Balance: ${wallet.balance}, Attempted debit: ${amount}`);
-      amount = wallet.balance;
+      if (wallet.balance < amount) {
+        await session.abortTransaction();
+        session.endSession();
+        throw new ApiError(400, `Insufficient wallet balance for reversal. Balance: ${wallet.balance}, Required: ${amount}`);
+      }
+
+      const transactionRef = `REF_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const transaction = await Transaction.create([{
+        user: userId,
+        wallet: wallet._id,
+        type: 'debit',
+        category: 'refund',
+        amount,
+        currency: wallet.currency,
+        status: 'completed',
+        reference: transactionRef,
+        description: description || `Reversed payment refund`,
+        metadata: { resourceId, paymentReference, reversed: true },
+        completedAt: new Date()
+      }], { session });
+
+      wallet.balance = wallet.balance - amount;
+      wallet.totalEarned = wallet.totalEarned - amount;
+      await wallet.save({ session });
+
+      await session.commitTransaction();
+      session.endSession();
+      return { wallet, transaction: transaction[0] };
+    } catch (err) {
+      await session.abortTransaction();
+      session.endSession();
+      throw err;
     }
-
-    const transactionRef = `REF_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    const transaction = await Transaction.create({
-      user: userId,
-      wallet: wallet._id,
-      type: 'debit',
-      category: 'refund',
-      amount,
-      currency: wallet.currency,
-      status: 'completed',
-      reference: transactionRef,
-      description: description || `Reversed payment refund`,
-      metadata: { resourceId, paymentReference, reversed: true },
-      completedAt: new Date()
-    });
-
-    wallet.balance = wallet.balance - amount;
-    wallet.totalEarned = wallet.totalEarned - amount;
-    await wallet.save();
-
-    return { wallet, transaction };
   }
 
   // Get wallet details

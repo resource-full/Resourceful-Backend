@@ -242,19 +242,30 @@ resourceSchema.pre('save', function(next) {
 // Pre-findOneAndUpdate for confidence score
 resourceSchema.pre('findOneAndUpdate', function(next) {
   const update = this.getUpdate();
+  const set = update.$set ? update.$set : update;
   
-  if (update.peerRatings !== undefined || 
-      update.verificationStatus !== undefined) {
-    const recencyScore = calculateRecencyScore(new Date());
-    update.confidenceScore = calculateConfidenceScore(
-      update.peerRatings || 0,
-      update.verificationStatus || false,
-      recencyScore
+  if (set.peerRatings !== undefined || 
+      set.verificationStatus !== undefined) {
+    const peerRatings = set.peerRatings ?? 0;
+    const verificationStatus = set.verificationStatus ?? false;
+    const confidence = calculateConfidenceScore(
+      peerRatings,
+      verificationStatus,
+      new Date()
     );
+    if (update.$set) {
+      update.$set.confidenceScore = confidence;
+    } else {
+      update.confidenceScore = confidence;
+    }
   }
   
-  if (update.status === 'public') {
-    update.publishedAt = new Date();
+  if (set.status === 'public') {
+    if (update.$set) {
+      update.$set.publishedAt = new Date();
+    } else {
+      update.publishedAt = new Date();
+    }
   }
   
   next();

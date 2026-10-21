@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Resource = require('./resource.model');
 const User = require('../user/user.model');
 const Hub = require('../hub/hub.model');
@@ -158,14 +159,48 @@ class ResourceService {
       filter.$text = { $search: search };
     }
     
+    const sortObj = {};
+    const sortField = sort.startsWith('-') ? sort.slice(1) : sort;
+    sortObj[sortField] = sort.startsWith('-') ? -1 : 1;
+
+    const pipeline = [
+      { $match: filter },
+      { $sort: sortObj },
+      { $skip: skip },
+      { $limit: parseInt(limit) },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'owner',
+          foreignField: '_id',
+          as: 'owner',
+          pipeline: [{ $project: { name: 1, email: 1, avatar: 1 } }]
+        }
+      },
+      { $unwind: { path: '$owner', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'hubs',
+          localField: 'hub',
+          foreignField: '_id',
+          as: 'hub',
+          pipeline: [{ $project: { name: 1 } }]
+        }
+      },
+      { $unwind: { path: '$hub', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'collaborators.user',
+          foreignField: '_id',
+          as: 'collabUsers',
+          pipeline: [{ $project: { name: 1, email: 1 } }]
+        }
+      }
+    ];
+
     const [resources, total, totalPublicResources, totalPublicPathways, totalPublicHubs] = await Promise.all([
-      Resource.find(filter)
-        .populate('owner', 'name email avatar')
-        .populate('hub', 'name')
-        .populate('collaborators.user', 'name email')
-        .limit(limit)
-        .skip(skip)
-        .sort(sort),
+      Resource.aggregate(pipeline),
       Resource.countDocuments(filter),
       Resource.countDocuments({ status: 'public', isDeleted: false }),
       Pathway.countDocuments({ status: 'public', isDeleted: false }),
@@ -189,13 +224,69 @@ class ResourceService {
   }
   
 async getResourceById(resourceId, userId = null) {
-    const resource = await Resource.findById(resourceId)
-      .populate('owner', 'name email avatar bio')
-      .populate('hub', 'name description')
-      .populate('collaborators.user', 'name email avatar')
-      .populate('sharedWith.user', 'name email');
+    const pipeline = [
+      { $match: { _id: new mongoose.Types.ObjectId(resourceId), isDeleted: false } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'owner',
+          foreignField: '_id',
+          as: 'owner',
+          pipeline: [{ $project: { name: 1, email: 1, avatar: 1, bio: 1 } }]
+        }
+      },
+      { $unwind: { path: '$owner', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'hubs',
+          localField: 'hub',
+          foreignField: '_id',
+          as: 'hub',
+          pipeline: [{ $project: { name: 1, description: 1 } }]
+        }
+      },
+      { $unwind: { path: '$hub', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'collaborators.user',
+          foreignField: '_id',
+          as: 'collabUsers',
+          pipeline: [{ $project: { name: 1, email: 1, avatar: 1 } }]
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'sharedWith.user',
+          foreignField: '_id',
+          as: 'sharedUsers',
+          pipeline: [{ $project: { name: 1, email: 1 } }]
+        }
+      },
+      {
+        $addFields: {
+          collaborators: {
+            $map: {
+              input: '$collaborators',
+              as: 'c',
+              in: { $mergeObjects: ['$$c', { user: { $arrayElemAt: ['$collabUsers', { $indexOfArray: ['$collaborators.user', '$$c.user'] }] } }] }
+            }
+          },
+          sharedWith: {
+            $map: {
+              input: '$sharedWith',
+              as: 's',
+              in: { $mergeObjects: ['$$s', { user: { $arrayElemAt: ['$sharedUsers', { $indexOfArray: ['$sharedWith.user', '$$s.user'] }] } }] }
+            }
+          }
+        }
+      }
+    ];
 
-    if (!resource || resource.isDeleted) {
+    const [resource] = await Resource.aggregate(pipeline);
+
+    if (!resource) {
       throw new ApiError(404, 'Resource not found');
     }
 

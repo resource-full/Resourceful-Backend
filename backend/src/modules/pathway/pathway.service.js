@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Pathway = require('./pathway.model');
 const Resource = require('../resource/resource.model');
 const Hub = require('../hub/hub.model');
@@ -22,11 +23,13 @@ class PathwayService {
     
     if (pathwayData.blocks && pathwayData.blocks.length > 0) {
       const resourceBlocks = pathwayData.blocks.filter(block => block.type === 'resource');
-      
-      for (const block of resourceBlocks) {
-        const resource = await Resource.findById(block.resource);
-        if (!resource) {
-          throw new ApiError(404, `Resource not found: ${block.resource}`);
+      const resourceIds = [...new Set(resourceBlocks.map(b => b.resource))];
+      if (resourceIds.length > 0) {
+        const found = await Resource.find({ _id: { $in: resourceIds } }).select('_id');
+        if (found.length !== resourceIds.length) {
+          const foundIds = found.map(r => r._id.toString());
+          const missing = resourceIds.find(id => !foundIds.includes(id.toString()));
+          throw new ApiError(404, `Resource not found: ${missing}`);
         }
       }
     }
@@ -133,15 +136,87 @@ class PathwayService {
     if (search) {
       filter.$text = { $search: search };
     }
-    
+
+    const sortObj = {};
+    const sortField = sort.startsWith('-') ? sort.slice(1) : sort;
+    sortObj[sortField] = sort.startsWith('-') ? -1 : 1;
+
+    const pipeline = [
+      { $match: filter },
+      { $sort: sortObj },
+      { $skip: skip },
+      { $limit: parseInt(limit) },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'author',
+          foreignField: '_id',
+          as: 'author',
+          pipeline: [{ $project: { name: 1, email: 1, avatar: 1 } }]
+        }
+      },
+      { $unwind: { path: '$author', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'hubs',
+          localField: 'hub',
+          foreignField: '_id',
+          as: 'hub',
+          pipeline: [{ $project: { name: 1 } }]
+        }
+      },
+      { $unwind: { path: '$hub', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: '$blocks', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'resources',
+          localField: 'blocks.resource',
+          foreignField: '_id',
+          as: 'blocks.resource',
+          pipeline: [{ $project: { name: 1, coverPhoto: 1, industry: 1, experience: 1, peerRatings: 1 } }]
+        }
+      },
+      {
+        $group: {
+          _id: '$_id',
+          author: { $first: '$author' },
+          hub: { $first: '$hub' },
+          blocks: { $push: '$blocks' },
+          industry: { $first: '$industry' },
+          experience: { $first: '$experience' },
+          applicableLocation: { $first: '$applicableLocation' },
+          isFree: { $first: '$isFree' },
+          price: { $first: '$price' },
+          currency: { $first: '$currency' },
+          title: { $first: '$title' },
+          description: { $first: '$description' },
+          status: { $first: '$status' },
+          createdAt: { $first: '$createdAt' },
+          updatedAt: { $first: '$updatedAt' }
+        }
+      },
+      {
+        $addFields: {
+          'blocks': {
+            $map: {
+              input: '$blocks',
+              as: 'b',
+              in: {
+                $mergeObjects: [
+                  '$$b',
+                  {
+                    resource: { $arrayElemAt: ['$$b.resource', 0] }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    ];
+
     const [pathways, total, totalPublicResources, totalPublicPathways, totalPublicHubs] = await Promise.all([
-      Pathway.find(filter)
-        .populate('author', 'name email avatar')
-        .populate('blocks.resource', 'name coverPhoto industry experience peerRatings')
-        .populate('hub', 'name')
-        .limit(limit)
-        .skip(skip)
-        .sort(sort),
+      Pathway.aggregate(pipeline),
       Pathway.countDocuments(filter),
       Resource.countDocuments({ status: 'public', isDeleted: false }),
       Pathway.countDocuments({ status: 'public', isDeleted: false }),
@@ -165,12 +240,73 @@ class PathwayService {
   }
   
 async getPathwayById(pathwayId, userId = null) {
-    const pathway = await Pathway.findById(pathwayId)
-      .populate('author', 'name email avatar bio')
-      .populate('blocks.resource', 'name description coverPhoto industry experience applicableLocation isFree price currency peerRatings confidenceScore')
-      .populate('hub', 'name description');
+    const pipeline = [
+      { $match: { _id: new mongoose.Types.ObjectId(pathwayId), isDeleted: false } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'author',
+          foreignField: '_id',
+          as: 'author',
+          pipeline: [{ $project: { name: 1, email: 1, avatar: 1, bio: 1 } }]
+        }
+      },
+      { $unwind: { path: '$author', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'hubs',
+          localField: 'hub',
+          foreignField: '_id',
+          as: 'hub',
+          pipeline: [{ $project: { name: 1, description: 1 } }]
+        }
+      },
+      { $unwind: { path: '$hub', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: '$blocks', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'resources',
+          localField: 'blocks.resource',
+          foreignField: '_id',
+          as: 'blocks.resource',
+          pipeline: [{ $project: { name: 1, description: 1, coverPhoto: 1, industry: 1, experience: 1, applicableLocation: 1, isFree: 1, price: 1, currency: 1, peerRatings: 1, confidenceScore: 1 } }]
+        }
+      },
+      {
+        $group: {
+          _id: '$_id',
+          author: { $first: '$author' },
+          hub: { $first: '$hub' },
+          blocks: { $push: '$blocks' },
+          industry: { $first: '$industry' },
+          experience: { $first: '$experience' },
+          applicableLocation: { $first: '$applicableLocation' },
+          isFree: { $first: '$isFree' },
+          price: { $first: '$price' },
+          currency: { $first: '$currency' },
+          title: { $first: '$title' },
+          description: { $first: '$description' },
+          status: { $first: '$status' },
+          createdAt: { $first: '$createdAt' },
+          updatedAt: { $first: '$updatedAt' }
+        }
+      },
+      {
+        $addFields: {
+          blocks: {
+            $map: {
+              input: '$blocks',
+              as: 'b',
+              in: { $mergeObjects: ['$$b', { resource: { $arrayElemAt: ['$$b.resource', 0] } }] }
+            }
+          }
+        }
+      }
+    ];
 
-    if (!pathway || pathway.isDeleted) {
+    const [pathway] = await Pathway.aggregate(pipeline);
+
+    if (!pathway) {
       throw new ApiError(404, 'Pathway not found');
     }
 
@@ -216,10 +352,13 @@ async getPathwayById(pathwayId, userId = null) {
     
     if (updateData.blocks) {
       const resourceBlocks = updateData.blocks.filter(block => block.type === 'resource');
-      for (const block of resourceBlocks) {
-        const resource = await Resource.findById(block.resource);
-        if (!resource) {
-          throw new ApiError(404, `Resource not found: ${block.resource}`);
+      const resourceIds = [...new Set(resourceBlocks.map(b => b.resource))];
+      if (resourceIds.length > 0) {
+        const found = await Resource.find({ _id: { $in: resourceIds } }).select('_id');
+        if (found.length !== resourceIds.length) {
+          const foundIds = found.map(r => r._id.toString());
+          const missing = resourceIds.find(id => !foundIds.includes(id.toString()));
+          throw new ApiError(404, `Resource not found: ${missing}`);
         }
       }
     }
