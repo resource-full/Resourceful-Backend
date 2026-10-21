@@ -61,11 +61,16 @@ app.use((req, res, next) => {
 });
 
 // Session middleware - require explicit SESSION_SECRET
+const sessionSecret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
+if (!sessionSecret) {
+  console.error('SESSION_SECRET env var is required for sessions');
+  throw new Error('SESSION_SECRET env var is required for sessions');
+}
 if (!process.env.SESSION_SECRET) {
-  console.warn('SESSION_SECRET not set, session cookies will be insecure');
+  console.warn('SESSION_SECRET not set, falling back to JWT_SECRET');
 }
 app.use(session({
-   secret: process.env.SESSION_SECRET,
+   secret: sessionSecret,
    resave: false,
    saveUninitialized: false,
    cookie: {
