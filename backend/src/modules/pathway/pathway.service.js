@@ -310,33 +310,40 @@ async getPathwayById(pathwayId, userId = null) {
       throw new ApiError(404, 'Pathway not found');
     }
 
-    if (pathway.status === 'public' && !pathway.isFree) {
-      if (!userId) {
-        throw new ApiError(403, 'You must purchase this pathway to access it');
-      }
-
-      const hasPurchased = await Payment.findOne({
-        user: userId,
-        item: pathwayId,
-        itemType: 'Pathway',
-        status: 'success'
-      });
-
-      if (!hasPurchased) {
-        throw new ApiError(403, 'You must purchase this pathway to access it');
-      }
-    }
-
-    if (pathway.status === 'public') {
-      return pathway;
-    }
-
     const authorId = this.getId(pathway.author);
-    if (!userId || authorId !== userId.toString()) {
-      throw new ApiError(403, 'You do not have access to this pathway');
+    const isAuthor = userId && authorId === userId.toString();
+
+    let isPurchased = true;
+    let requiresPayment = false;
+    if (pathway.status === 'public' && !pathway.isFree && !isAuthor) {
+      requiresPayment = true;
+      if (!userId) {
+        isPurchased = false;
+      } else {
+        isPurchased = !!(await Payment.findOne({
+          user: userId,
+          item: pathwayId,
+          itemType: 'Pathway',
+          status: 'success'
+        }));
+      }
     }
 
-    return pathway;
+    if (pathway.status !== 'public') {
+      if (!userId || !isAuthor) {
+        throw new ApiError(403, 'You do not have access to this pathway');
+      }
+    }
+
+    const canAccessContent = pathway.isFree || isAuthor || isPurchased;
+
+    return {
+      ...pathway,
+      isPurchased,
+      requiresPayment,
+      canAccessContent,
+      isAuthor
+    };
   }
   
   async updatePathway(pathwayId, userId, updateData) {

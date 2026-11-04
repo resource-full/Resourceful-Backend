@@ -296,17 +296,17 @@ async getResourceById(resourceId, userId = null) {
       throw new ApiError(403, 'You do not have access to this resource');
     }
 
-    if (!resource.isFree && userId && resource.status === 'public') {
-      const hasPurchased = await Payment.findOne({
+    const isOwner = userId && this.getOwnerId(resource) === userId.toString();
+    let isPurchased = true;
+    let requiresPayment = false;
+    if (!resource.isFree && resource.status === 'public' && userId && !isOwner) {
+      requiresPayment = true;
+      isPurchased = !!(await Payment.findOne({
         user: userId,
         item: resourceId,
         itemType: 'Resource',
         status: 'success'
-      });
-
-      if (!hasPurchased) {
-        throw new ApiError(403, 'You must purchase this resource to access it');
-      }
+      }));
     }
 
     if (resource.status === 'public' || (userId && this.checkResourceAccess(resource, userId))) {
@@ -324,9 +324,14 @@ async getResourceById(resourceId, userId = null) {
       }).select('type rating');
     }
 
+    const canDownload = resource.isFree || isOwner || isPurchased;
+
     return {
       ...resource.toObject(),
-      userInteractions
+      userInteractions,
+      isPurchased,
+      requiresPayment,
+      canDownload
     };
   }
   

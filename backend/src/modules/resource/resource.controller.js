@@ -190,6 +190,11 @@ class ResourceController {
       req.params.id,
       req.user._id
     );
+
+    if (!resource.canDownload) {
+      const ApiError = require('../../utils/apiError');
+      throw new ApiError(403, 'You must purchase this resource to download it');
+    }
     
     res.status(200).json({
       success: true,
