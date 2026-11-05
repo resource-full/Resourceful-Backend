@@ -341,5 +341,7 @@ userSchema.methods.isLocked = function() {
 
 userSchema.index({ name: 'text', email: 'text', skills: 'text' });
 userSchema.index({ createdAt: -1 });
+userSchema.index({ lastLogin: -1 });
+userSchema.index({ industry: 1 });
 
 module.exports = mongoose.model('User', userSchema);

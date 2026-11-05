@@ -26,31 +26,30 @@ class AdminService {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const [
-      totalUsers,
-      newToday,
-      activeUsers,
-      loginsToday,
+      userFacet,
       totalResources,
       totalPathways,
       publicHubs,
-      totalDownloads,
+      resourceSums,
       totalSaves,
-      totalPurchases,
-      grossRevenueAgg,
+      paymentsAgg,
       monthlyUserGrowth,
       revenueTrend,
       usersByIndustry
     ] = await Promise.all([
-      User.countDocuments({ isActive: { $ne: false } }),
-      User.countDocuments({ createdAt: { $gte: todayStart } }),
-      User.countDocuments({ lastLogin: { $gte: thirtyDaysAgo } }),
-      User.countDocuments({ lastLogin: { $gte: todayStart } }),
+      User.aggregate([
+        { $facet: {
+          total: [ { $match: { isActive: { $ne: false } } }, { $count: 'c' } ],
+          newToday: [ { $match: { createdAt: { $gte: todayStart } } }, { $count: 'c' } ],
+          active: [ { $match: { lastLogin: { $gte: thirtyDaysAgo } } }, { $count: 'c' } ],
+          loginsToday: [ { $match: { lastLogin: { $gte: todayStart } } }, { $count: 'c' } ]
+        }}
+      ]),
       Resource.countDocuments({ isDeleted: false }),
       Pathway.countDocuments({ isDeleted: false }),
       Hub.countDocuments({ status: 'public', isDeleted: false }),
-      Resource.aggregate([{ $group: { _id: null, total: { $sum: '$downloadCount' } } }]),
+      Resource.aggregate([{ $match: { isDeleted: false } }, { $group: { _id: null, downloads: { $sum: '$downloadCount' }, siteVisits: { $sum: '$viewCount' } } }]),
       Interaction.countDocuments({ type: 'save' }),
-      Payment.countDocuments({ status: 'success' }),
       Payment.aggregate([
         { $match: { status: 'success' } },
         { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
@@ -73,14 +72,17 @@ class AdminService {
       ])
     ]);
 
-    const totalDownloadsVal = totalDownloads[0]?.total || 0;
-    const gross = grossRevenueAgg[0] || { total: 0, count: 0 };
-    const grossRevenue = gross.total || 0;
-    const totalPurchasesVal = gross.count || totalPurchases;
+    const totalUsers = userFacet[0]?.total?.[0]?.c || 0;
+    const newToday = userFacet[0]?.newToday?.[0]?.c || 0;
+    const activeUsers = userFacet[0]?.active?.[0]?.c || 0;
+    const loginsToday = userFacet[0]?.loginsToday?.[0]?.c || 0;
 
-    // Site visits approximation: sum viewCount from resources
-    const siteVisitsAgg = await Resource.aggregate([{ $group: { _id: null, total: { $sum: '$viewCount' } } }]);
-    const siteVisits = siteVisitsAgg[0]?.total || 0;
+    const downloads = resourceSums[0]?.downloads || 0;
+    const siteVisits = resourceSums[0]?.siteVisits || 0;
+
+    const gross = paymentsAgg[0] || { total: 0, count: 0 };
+    const grossRevenue = gross.total || 0;
+    const totalPurchases = gross.count || 0;
 
     // Avg creator revenue
     const creatorRevenueAgg = await Payment.aggregate([
@@ -106,7 +108,7 @@ class AdminService {
         siteVisits,
         resources: totalResources,
         pathways: totalPathways,
-        downloads: totalDownloadsVal
+        downloads
       },
       users: {
         totalUsers,
@@ -116,7 +118,7 @@ class AdminService {
         siteVisits
       },
       marketplace: {
-        totalPurchases: totalPurchasesVal,
+        totalPurchases,
         grossRevenue,
         avgCreatorRevenue: Math.round(avgCreatorRevenue * 100) / 100
       },
@@ -124,7 +126,7 @@ class AdminService {
         totalResources,
         totalPathways,
         publicHubs,
-        downloads: totalDownloadsVal,
+        downloads,
         totalSaves
       },
       charts: {

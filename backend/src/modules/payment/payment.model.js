@@ -61,6 +61,7 @@ const paymentSchema = new mongoose.Schema({
 
 paymentSchema.index({ user: 1 });
 paymentSchema.index({ status: 1 });
+paymentSchema.index({ status: 1, createdAt: -1 });
 paymentSchema.index({ idempotencyKey: 1 }, { sparse: true });
 paymentSchema.index({ nextRetryAt: 1 });
 

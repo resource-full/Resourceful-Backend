@@ -1,7 +1,6 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
 const mongoose = require('mongoose');
 const User = require('./src/modules/user/user.model');
-const bcrypt = require('bcryptjs');
 
 const MONGO_URI = process.env.MONGO_URI;
 
@@ -12,18 +11,17 @@ async function seedSuperAdmin() {
   const existing = await User.findOne({ username: 'superadmin' });
   if (existing) {
     existing.email = email;
-    existing.password = await bcrypt.hash(password, 10);
+    existing.password = password;
     existing.role = 'superadmin';
     existing.isEmailVerified = true;
     await existing.save();
     console.log('Super admin updated:', email);
     process.exit(0);
   }
-  const hashed = await bcrypt.hash(password, 10);
   await User.create({
     name: 'Super Admin',
     email,
-    password: hashed,
+    password,
     role: 'superadmin',
     username: 'superadmin',
     isEmailVerified: true
