@@ -35,6 +35,11 @@ class AdminController {
     const data = await adminService.suspendUser(req.params.id, isActive);
     res.status(200).json({ success: true, data });
   });
+
+  getResources = asyncHandler(async (req, res) => {
+    const data = await adminService.getResourcesAdmin(req.query);
+    res.status(200).json({ success: true, data });
+  });
 }
 
 module.exports = new AdminController();

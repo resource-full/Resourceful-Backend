@@ -372,6 +372,148 @@ class AdminService {
     if (!user) throw new Error('User not found');
     return user;
   }
+
+  async getResourcesAdmin(query = {}) {
+    const page = parseInt(query.page) || 1;
+    const limit = Math.min(parseInt(query.limit) || 20, 100);
+    const skip = (page - 1) * limit;
+
+    const status = query.status;
+    const industry = query.industry;
+    const location = query.location;
+    const search = query.search?.trim();
+
+    const match = { isDeleted: false };
+    if (status) match.status = status;
+    if (industry) match.industry = industry;
+    if (location) match.applicableLocation = { $regex: location, $options: 'i' };
+    if (search) match.name = { $regex: search, $options: 'i' };
+
+    const [stats, charts, resourcesData] = await Promise.all([
+      Promise.all([
+        Resource.countDocuments({ isDeleted: false }),
+        Resource.countDocuments({ isDeleted: false, status: 'public' }),
+        Resource.countDocuments({ isDeleted: false, status: 'draft' }),
+        Resource.countDocuments({ isDeleted: false, status: { $ne: 'public' } })
+      ]),
+      Promise.all([
+        User.aggregate([
+          { $match: { location: { $exists: true, $ne: '' } } },
+          { $group: { _id: '$location', count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 10 }
+        ]),
+        Resource.aggregate([
+          { $match: { isDeleted: false } },
+          { $group: { _id: '$isFree', count: { $sum: 1 } } }
+        ]),
+        Resource.aggregate([
+          { $match: { isDeleted: false } },
+          { $sort: { viewCount: -1 } },
+          { $limit: 10 },
+          { $project: { _id: 0, name: 1, views: '$viewCount', downloads: '$downloadCount' } }
+        ])
+      ]),
+      (async () => {
+        const pipeline = [
+          { $match: match },
+          { $sort: { createdAt: -1 } },
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'owner',
+              foreignField: '_id',
+              as: 'creator',
+              pipeline: [{ $project: { name: 1, avatar: 1 } }]
+            }
+          },
+          { $unwind: { path: '$creator', preserveNullAndEmptyArrays: true } },
+          {
+            $lookup: {
+              from: 'interactions',
+              let: { resId: '$_id' },
+              pipeline: [
+                { $match: { $expr: { $and: [{ $eq: ['$resource', '$$resId'] }, { $eq: ['$type', 'save'] }] } } },
+                { $count: 'cnt' }
+              ],
+              as: 'savesAgg'
+            }
+          },
+          {
+            $addFields: {
+              saves: { $ifNull: [{ $arrayElemAt: ['$savesAgg.cnt', 0] }, 0] }
+            }
+          },
+          {
+            $project: {
+              _id: 1,
+              name: 1,
+              industry: 1,
+              price: 1,
+              isFree: 1,
+              status: 1,
+              confidenceScore: 1,
+              downloadCount: 1,
+              viewCount: 1,
+              saves: 1,
+              creatorName: '$creator.name',
+              creatorAvatar: '$creator.avatar'
+            }
+          }
+        ];
+        const [items, total] = await Promise.all([
+          Resource.aggregate(pipeline),
+          Resource.countDocuments(match)
+        ]);
+        return { items, total };
+      })()
+    ]);
+
+    const [totalResources, verified, pendingReview, flagged] = stats;
+    const [usersByCountry, freeVsPaidRaw, topPerforming] = charts;
+    const { items, total } = resourcesData;
+
+    const freeVsPaid = [
+      { label: 'Free', count: freeVsPaidRaw.find(d => d._id === true)?.count || 0 },
+      { label: 'Paid', count: freeVsPaidRaw.find(d => d._id === false)?.count || 0 }
+    ];
+
+    const resourcesFormatted = items.map(r => ({
+      _id: r._id,
+      name: r.name,
+      creator: { name: r.creatorName, avatar: r.creatorAvatar },
+      category: r.industry,
+      price: r.isFree ? 'Free' : `${r.price} ${r.currency || ''}`.trim(),
+      status: r.status,
+      confidence: r.confidenceScore,
+      downloads: r.downloadCount,
+      saves: r.saves,
+      views: r.viewCount
+    }));
+
+    return {
+      stats: {
+        totalResources,
+        verified,
+        pendingReview,
+        flagged
+      },
+      charts: {
+        usersByCountry: usersByCountry.map(u => ({ country: u._id, count: u.count })),
+        freeVsPaid,
+        topPerformingResources: topPerforming.map(r => ({ name: r.name, views: r.views, downloads: r.downloads }))
+      },
+      resources: resourcesFormatted,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    };
+  }
 }
 
 module.exports = new AdminService();

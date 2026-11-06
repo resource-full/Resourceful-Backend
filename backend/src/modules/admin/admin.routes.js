@@ -12,5 +12,6 @@ router.get('/analytics', adminController.getAnalytics);
 router.get('/users', adminController.getUsers);
 router.get('/users/:id', adminController.getUserDetail);
 router.patch('/users/:id/suspend', adminController.suspendUser);
+router.get('/resources', adminController.getResources);
 
 module.exports = router;
