@@ -514,6 +514,155 @@ class AdminService {
       }
     };
   }
+
+  async getResourceDetail(id) {
+    const resource = await Resource.findOne({ _id: id, isDeleted: false }).populate('owner', 'name avatar email');
+    if (!resource) throw new Error('Resource not found');
+    return resource;
+  }
+
+  async flagResource(id, isFlagged) {
+    if (typeof isFlagged !== 'boolean') {
+      throw new Error('isFlagged boolean required');
+    }
+    const resource = await Resource.findByIdAndUpdate(id, { isFlagged }, { new: true });
+    if (!resource) throw new Error('Resource not found');
+    return resource;
+  }
+
+  async getPathwaysAdmin(query = {}) {
+    const page = parseInt(query.page) || 1;
+    const limit = Math.min(parseInt(query.limit) || 20, 100);
+    const skip = (page - 1) * limit;
+
+    const status = query.status;
+    const industry = query.industry;
+    const location = query.location;
+    const search = query.search?.trim();
+
+    const match = { isDeleted: false };
+    if (status) match.status = status;
+    if (industry) match.industry = industry;
+    if (location) match.applicableLocation = { $regex: location, $options: 'i' };
+    if (search) match.name = { $regex: search, $options: 'i' };
+
+    const [stats, tableData] = await Promise.all([
+      Promise.all([
+        Pathway.countDocuments({ isDeleted: false }),
+        Interaction.countDocuments({ type: 'complete' })
+      ]),
+      (async () => {
+        const pipeline = [
+          { $match: match },
+          { $sort: { createdAt: -1 } },
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'author',
+              foreignField: '_id',
+              as: 'creator',
+              pipeline: [{ $project: { name: 1, avatar: 1 } }]
+            }
+          },
+          { $unwind: { path: '$creator', preserveNullAndEmptyArrays: true } },
+          {
+            $lookup: {
+              from: 'interactions',
+              let: { pwId: '$_id' },
+              pipeline: [
+                { $match: { $expr: { $eq: ['$resource', '$$pwId'] } } },
+                { $count: 'cnt' }
+              ],
+              as: 'savesAgg'
+            }
+          },
+          {
+            $addFields: {
+              saves: { $ifNull: [{ $arrayElemAt: ['$savesAgg.cnt', 0] }, 0] },
+              resourcesCount: { $size: { $ifNull: ['$blocks', []] } }
+            }
+          },
+          {
+            $project: {
+              _id: 1,
+              name: 1,
+              industry: 1,
+              status: 1,
+              applicableLocation: 1,
+              viewCount: 1,
+              saves: 1,
+              resourcesCount: 1,
+              creatorName: '$creator.name',
+              creatorAvatar: '$creator.avatar'
+            }
+          }
+        ];
+        const [items, total] = await Promise.all([
+          Pathway.aggregate(pipeline),
+          Pathway.countDocuments(match)
+        ]);
+        return { items, total };
+      })()
+    ]);
+
+    const [totalPathways, completions] = stats;
+    const { items, total } = tableData;
+
+    const pathwaysFormatted = items.map(p => ({
+      _id: p._id,
+      name: p.name,
+      creator: { name: p.creatorName, avatar: p.creatorAvatar },
+      industry: p.industry,
+      resources: p.resourcesCount,
+      completion: 0,
+      saves: p.saves,
+      views: p.viewCount,
+      status: p.status
+    }));
+
+    return {
+      stats: {
+        totalPathways,
+        completions
+      },
+      pathways: pathwaysFormatted,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async getPathwayDetail(id) {
+    const pathway = await Pathway.findOne({ _id: id, isDeleted: false }).populate('author', 'name avatar email');
+    if (!pathway) throw new Error('Pathway not found');
+    return pathway;
+  }
+
+  async flagPathway(id, isFlagged) {
+    if (typeof isFlagged !== 'boolean') {
+      throw new Error('isFlagged boolean required');
+    }
+    const pathway = await Pathway.findByIdAndUpdate(id, { isFlagged }, { new: true });
+    if (!pathway) throw new Error('Pathway not found');
+    return pathway;
+  }
+
+  async deletePathway(id) {
+    const pathway = await Pathway.findByIdAndUpdate(id, { isDeleted: true, deletedAt: new Date() }, { new: true });
+    if (!pathway) throw new Error('Pathway not found');
+    return { message: 'Pathway deleted' };
+  }
+
+  async deleteResource(id) {
+    const resource = await Resource.findByIdAndUpdate(id, { isDeleted: true, deletedAt: new Date() }, { new: true });
+    if (!resource) throw new Error('Resource not found');
+    return { message: 'Resource deleted' };
+  }
 }
 
 module.exports = new AdminService();

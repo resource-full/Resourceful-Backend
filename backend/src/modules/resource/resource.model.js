@@ -204,7 +204,11 @@ const resourceSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  deletedAt: Date
+  deletedAt: Date,
+  isFlagged: {
+    type: Boolean,
+    default: false
+  }
 }, {
   timestamps: {
     currentTime: () => moment().tz('Africa/Lagos').toDate()

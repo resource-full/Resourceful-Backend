@@ -40,6 +40,41 @@ class AdminController {
     const data = await adminService.getResourcesAdmin(req.query);
     res.status(200).json({ success: true, data });
   });
+
+  getResourceDetail = asyncHandler(async (req, res) => {
+    const data = await adminService.getResourceDetail(req.params.id);
+    res.status(200).json({ success: true, data });
+  });
+
+  flagResource = asyncHandler(async (req, res) => {
+    const data = await adminService.flagResource(req.params.id, req.body?.isFlagged);
+    res.status(200).json({ success: true, data });
+  });
+
+  deleteResource = asyncHandler(async (req, res) => {
+    const data = await adminService.deleteResource(req.params.id);
+    res.status(200).json({ success: true, data });
+  });
+
+  getPathways = asyncHandler(async (req, res) => {
+    const data = await adminService.getPathwaysAdmin(req.query);
+    res.status(200).json({ success: true, data });
+  });
+
+  getPathwayDetail = asyncHandler(async (req, res) => {
+    const data = await adminService.getPathwayDetail(req.params.id);
+    res.status(200).json({ success: true, data });
+  });
+
+  flagPathway = asyncHandler(async (req, res) => {
+    const data = await adminService.flagPathway(req.params.id, req.body?.isFlagged);
+    res.status(200).json({ success: true, data });
+  });
+
+  deletePathway = asyncHandler(async (req, res) => {
+    const data = await adminService.deletePathway(req.params.id);
+    res.status(200).json({ success: true, data });
+  });
 }
 
 module.exports = new AdminController();
