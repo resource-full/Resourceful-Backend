@@ -200,8 +200,8 @@ class AdminService {
         { $sort: { _id: 1 } }
       ]),
       User.aggregate([
-        { $match: { country: { $exists: true, $ne: '' } } },
-        { $group: { _id: '$country', count: { $sum: 1 } } },
+        { $match: { location: { $exists: true, $ne: '' } } },
+        { $group: { _id: '$location', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 }
       ]),
