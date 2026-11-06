@@ -277,6 +277,101 @@ class AdminService {
       }
     };
   }
+
+  async getUsers(query = {}) {
+    const page = parseInt(query.page) || 1;
+    const limit = Math.min(parseInt(query.limit) || 20, 100);
+    const skip = (page - 1) * limit;
+
+    const search = query.search?.trim();
+    const status = query.status;
+    const industry = query.industry;
+    const location = query.location;
+    const experience = query.experience;
+
+    const match = {};
+    if (search) {
+      match.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { username: { $regex: search, $options: 'i' } }
+      ];
+    }
+    if (status) {
+      if (status === 'suspended') match.isActive = false;
+      else if (status === 'active') match.isActive = true;
+    }
+    if (industry) match.industry = industry;
+    if (location) match.location = { $regex: location, $options: 'i' };
+    if (experience) match.professionalExperience = experience;
+
+    const [stats, users, total] = await Promise.all([
+      Promise.all([
+        User.countDocuments({ isActive: { $ne: false } }),
+        User.countDocuments({ role: 'contributor', isEmailVerified: true }),
+        User.countDocuments({ role: 'contributor', isEmailVerified: false }),
+        User.countDocuments({ isActive: false })
+      ]),
+      User.find(match)
+        .select('name avatar email username location professionalExperience industry createdAt isActive isEmailVerified role')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(match)
+    ]);
+
+    const [totalUsers, verifiedCreators, pendingVerification, suspended] = stats;
+
+    const usersFormatted = users.map(u => ({
+      _id: u._id,
+      name: u.name,
+      avatar: u.avatar,
+      email: u.email,
+      username: u.username,
+      location: u.location,
+      experience: u.professionalExperience,
+      industry: u.industry,
+      joined: u.createdAt,
+      status: u.isActive ? 'active' : 'suspended',
+      creator: u.role === 'contributor' || u.role === 'admin' || u.role === 'superadmin',
+      verified: u.isEmailVerified
+    }));
+
+    return {
+      stats: {
+        totalUsers,
+        verifiedCreators,
+        pendingVerification,
+        suspended
+      },
+      users: usersFormatted,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async getUserDetail(id) {
+    const user = await User.findById(id)
+      .select('-password -refreshToken -passwordResetToken -passwordResetExpire -passwordChangedAt')
+      .lean();
+    if (!user) throw new Error('User not found');
+    return user;
+  }
+
+  async suspendUser(id, isActive) {
+    const user = await User.findByIdAndUpdate(
+      id,
+      { isActive },
+      { new: true }
+    ).select('name email isActive');
+    if (!user) throw new Error('User not found');
+    return user;
+  }
 }
 
 module.exports = new AdminService();

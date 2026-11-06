@@ -16,6 +16,25 @@ class AdminController {
     const data = await adminService.getAnalytics();
     res.status(200).json({ success: true, data });
   });
+
+  getUsers = asyncHandler(async (req, res) => {
+    const data = await adminService.getUsers(req.query);
+    res.status(200).json({ success: true, data });
+  });
+
+  getUserDetail = asyncHandler(async (req, res) => {
+    const data = await adminService.getUserDetail(req.params.id);
+    res.status(200).json({ success: true, data });
+  });
+
+  suspendUser = asyncHandler(async (req, res) => {
+    const isActive = req.body?.isActive;
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'isActive boolean required' });
+    }
+    const data = await adminService.suspendUser(req.params.id, isActive);
+    res.status(200).json({ success: true, data });
+  });
 }
 
 module.exports = new AdminController();

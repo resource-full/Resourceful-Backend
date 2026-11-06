@@ -9,5 +9,8 @@ router.use(protect, authorize('superadmin', 'admin'));
 router.get('/dashboard', adminController.getDashboard);
 router.get('/stats', adminController.getStats);
 router.get('/analytics', adminController.getAnalytics);
+router.get('/users', adminController.getUsers);
+router.get('/users/:id', adminController.getUserDetail);
+router.patch('/users/:id/suspend', adminController.suspendUser);
 
 module.exports = router;
