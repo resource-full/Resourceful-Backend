@@ -7,5 +7,6 @@ const router = express.Router();
 router.use(protect, authorize('superadmin', 'admin'));
 
 router.get('/dashboard', adminController.getDashboard);
+router.get('/stats', adminController.getStats);
 
 module.exports = router;

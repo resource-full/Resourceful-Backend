@@ -20,6 +20,48 @@ class AdminService {
   }
 
   async getDashboard() {
+    const [
+      monthlyUserGrowth,
+      revenueTrend,
+      usersByIndustry
+    ] = await Promise.all([
+      User.aggregate([
+        { $group: { _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } }, count: { $sum: 1 } } },
+        { $sort: { '_id.year': 1, '_id.month': 1 } },
+        { $limit: 12 }
+      ]),
+      Payment.aggregate([
+        { $match: { status: 'success' } },
+        { $group: { _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } }, revenue: { $sum: '$amount' } } },
+        { $sort: { '_id.year': 1, '_id.month': 1 } },
+        { $limit: 12 }
+      ]),
+      User.aggregate([
+        { $match: { industry: { $exists: true, $ne: '' } } },
+        { $group: { _id: '$industry', count: { $sum: 1 } } },
+        { $project: { _id: 0, industry: '$_id', count: 1 } }
+      ])
+    ]);
+
+    return {
+      charts: {
+        monthlyUserGrowth: monthlyUserGrowth.map(m => ({
+          label: `${m._id.month}/${m._id.year}`,
+          value: m.count
+        })),
+        revenueTrend: revenueTrend.map(r => ({
+          label: `${r._id.month}/${r._id.year}`,
+          value: r.revenue
+        })),
+        usersByIndustry: usersByIndustry.map(u => ({
+          industry: u.industry,
+          count: u.count
+        }))
+      }
+    };
+  }
+
+  async getStats() {
     const now = new Date();
     const todayStart = this.startOfDay(now);
     const thirtyDaysAgo = new Date(now);
@@ -32,10 +74,7 @@ class AdminService {
       publicHubs,
       resourceSums,
       totalSaves,
-      paymentsAgg,
-      monthlyUserGrowth,
-      revenueTrend,
-      usersByIndustry
+      paymentsAgg
     ] = await Promise.all([
       User.aggregate([
         { $facet: {
@@ -53,22 +92,6 @@ class AdminService {
       Payment.aggregate([
         { $match: { status: 'success' } },
         { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
-      ]),
-      User.aggregate([
-        { $group: { _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } }, count: { $sum: 1 } } },
-        { $sort: { '_id.year': 1, '_id.month': 1 } },
-        { $limit: 12 }
-      ]),
-      Payment.aggregate([
-        { $match: { status: 'success' } },
-        { $group: { _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } }, revenue: { $sum: '$amount' } } },
-        { $sort: { '_id.year': 1, '_id.month': 1 } },
-        { $limit: 12 }
-      ]),
-      User.aggregate([
-        { $match: { industry: { $exists: true, $ne: '' } } },
-        { $group: { _id: '$industry', count: { $sum: 1 } } },
-        { $project: { _id: 0, industry: '$_id', count: 1 } }
       ])
     ]);
 
@@ -128,20 +151,6 @@ class AdminService {
         publicHubs,
         downloads,
         totalSaves
-      },
-      charts: {
-        monthlyUserGrowth: monthlyUserGrowth.map(m => ({
-          label: `${m._id.month}/${m._id.year}`,
-          value: m.count
-        })),
-        revenueTrend: revenueTrend.map(r => ({
-          label: `${r._id.month}/${r._id.year}`,
-          value: r.revenue
-        })),
-        usersByIndustry: usersByIndustry.map(u => ({
-          industry: u.industry,
-          count: u.count
-        }))
       }
     };
   }
