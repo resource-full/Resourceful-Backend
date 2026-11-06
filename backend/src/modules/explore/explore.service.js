@@ -2,6 +2,7 @@
 const Resource = require('../resource/resource.model');
 const Pathway = require('../pathway/pathway.model');
 const Hub = require('../hub/hub.model');
+const SearchQuery = require('../search/search.model');
 
 class ExploreService {
   buildFilter(query) {
@@ -17,7 +18,7 @@ class ExploreService {
     return filter;
   }
 
-  async getFeed(query = {}) {
+  async getFeed(query = {}, userId = null) {
     const limit = Math.min(parseInt(query.limit) || 50, 100);
     const cursor = query.cursor ? new Date(query.cursor) : null;
     const filter = this.buildFilter(query);
@@ -32,6 +33,21 @@ class ExploreService {
       Pathway.find(filter).select(pathwaySelect).populate('author', 'name avatar').sort({ createdAt: -1 }).limit(limit),
       Hub.find(filter).select(hubSelect).populate('owner', 'name avatar').sort({ createdAt: -1 }).limit(limit)
     ]);
+
+    // Log search query
+    if (query.search && query.search.trim()) {
+      SearchQuery.create({
+        query: query.search.trim(),
+        user: userId || null,
+        filters: {
+          country: query.country,
+          industry: query.industry,
+          experience: query.experience,
+          isFree: query.isFree
+        },
+        resultsCount: resources.length + pathways.length + hubs.length
+      }).catch(() => {});
+    }
 
     const data = {
       resources,

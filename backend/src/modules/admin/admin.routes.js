@@ -8,5 +8,6 @@ router.use(protect, authorize('superadmin', 'admin'));
 
 router.get('/dashboard', adminController.getDashboard);
 router.get('/stats', adminController.getStats);
+router.get('/analytics', adminController.getAnalytics);
 
 module.exports = router;

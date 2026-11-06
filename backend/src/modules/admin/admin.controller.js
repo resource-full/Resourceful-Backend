@@ -11,6 +11,11 @@ class AdminController {
     const data = await adminService.getStats();
     res.status(200).json({ success: true, data });
   });
+
+  getAnalytics = asyncHandler(async (req, res) => {
+    const data = await adminService.getAnalytics();
+    res.status(200).json({ success: true, data });
+  });
 }
 
 module.exports = new AdminController();

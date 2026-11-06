@@ -4,7 +4,7 @@ const asyncHandler = require('../../utils/asyncHandler');
 
 class ExploreController {
   getFeed = asyncHandler(async (req, res) => {
-    const data = await exploreService.getFeed(req.query);
+    const data = await exploreService.getFeed(req.query, req.user?._id);
     res.status(200).json({ success: true, data });
   });
 }

@@ -5,6 +5,7 @@ const Pathway = require('../pathway/pathway.model');
 const Hub = require('../hub/hub.model');
 const Payment = require('../payment/payment.model');
 const Interaction = require('../interaction/interaction.model');
+const SearchQuery = require('../search/search.model');
 
 class AdminService {
   startOfDay(date = new Date()) {
@@ -164,6 +165,115 @@ class AdminService {
         resources: totalResources,
         pathways: totalPathways,
         downloads
+      }
+    };
+  }
+
+  async getAnalytics() {
+    const now = new Date();
+    const todayStart = this.startOfDay(now);
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sixtyDaysAgo = new Date(now);
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    const [
+      activeCounts,
+      dailyActiveLast30,
+      usersByCountry,
+      mostVisitedPages,
+      interactionStats,
+      topSearchQueries
+    ] = await Promise.all([
+      User.aggregate([
+        { $facet: {
+          daily: [ { $match: { lastLogin: { $gte: todayStart } } }, { $count: 'c' } ],
+          weekly: [ { $match: { lastLogin: { $gte: sevenDaysAgo } } }, { $count: 'c' } ],
+          monthly: [ { $match: { lastLogin: { $gte: thirtyDaysAgo } } }, { $count: 'c' } ]
+        }}
+      ]),
+      User.aggregate([
+        { $match: { lastLogin: { $gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$lastLogin' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      User.aggregate([
+        { $match: { country: { $exists: true, $ne: '' } } },
+        { $group: { _id: '$country', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]),
+      Resource.aggregate([
+        { $match: { isDeleted: false } },
+        { $group: { _id: '$_id', name: { $first: '$name' }, views: { $first: '$viewCount' } } },
+        { $sort: { views: -1 } },
+        { $limit: 10 },
+        { $project: { _id: 0, page: '$name', views: 1 } }
+      ]),
+      Interaction.aggregate([
+        { $facet: {
+          totalInteractions: [ { $count: 'c' } ],
+          recClicks: [ { $match: { type: 'recommendation_click' } }, { $count: 'c' } ],
+          returningUsers: [
+            { $group: { _id: '$user', first: { $min: '$createdAt' }, last: { $max: '$createdAt' } } },
+            { $match: { $expr: { $lt: [ '$first', { $subtract: [ '$last', 30 * 24 * 60 * 60 * 1000 ] } ] } } },
+            { $count: 'c' }
+          ]
+        }}
+      ]),
+      SearchQuery.aggregate([
+        { $group: { _id: '$query', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+        { $project: { _id: 0, query: '$_id', count: 1 } }
+      ])
+    ]);
+
+    const dailyActive = activeCounts[0]?.daily?.[0]?.c || 0;
+    const weeklyActive = activeCounts[0]?.weekly?.[0]?.c || 0;
+    const monthlyActive = activeCounts[0]?.monthly?.[0]?.c || 0;
+
+    const totalUsers = await User.countDocuments({ isActive: { $ne: false } });
+    const returningUsersCount = interactionStats[0]?.returningUsers?.[0]?.c || 0;
+    const returningUsersPct = totalUsers ? Math.round((returningUsersCount / totalUsers) * 100 * 100) / 100 : 0;
+
+    const totalInteractions = interactionStats[0]?.totalInteractions?.[0]?.c || 0;
+    const recClicks = interactionStats[0]?.recClicks?.[0]?.c || 0;
+    const recClickRate = totalInteractions ? Math.round((recClicks / totalInteractions) * 100 * 100) / 100 : 0;
+
+    // Approx bounce rate as users with only 1 interaction in last 30 days
+    const bounceAgg = await Interaction.aggregate([
+      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      { $group: { _id: '$user', cnt: { $sum: 1 } } },
+      { $group: { _id: null, bounceUsers: { $sum: { $cond: [{ $eq: ['$cnt', 1] }, 1, 0] } }, totalUsers: { $sum: 1 } } }
+    ]);
+    const bounceRate = bounceAgg[0] ? Math.round((bounceAgg[0].bounceUsers / bounceAgg[0].totalUsers) * 100 * 100) / 100 : 0;
+
+    // Sessions % change vs previous 30 days
+    const sessionsCurrent = await Interaction.countDocuments({ createdAt: { $gte: thirtyDaysAgo, $lt: now } });
+    const sessionsPrev = await Interaction.countDocuments({ createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } });
+    const sessionsChange = sessionsPrev ? Math.round(((sessionsCurrent - sessionsPrev) / sessionsPrev) * 100 * 100) / 100 : 0;
+
+    const avgSessionMin = 0; // No session duration tracking in current schema
+
+    return {
+      analytics: {
+        dailyActiveUsers: dailyActive,
+        weeklyActiveUsers: weeklyActive,
+        monthlyActiveUsers: monthlyActive,
+        avgSessionMin: avgSessionMin,
+        bounceRate,
+        sessionsChange,
+        returningUsersPct,
+        recClickRate
+      },
+      charts: {
+        dailyActiveUsersLast30: dailyActiveLast30.map(d => ({ date: d._id, value: d.count })),
+        topSearchQueries: topSearchQueries.map(q => ({ query: q.query, count: q.count })),
+        usersByCountry: usersByCountry.map(u => ({ country: u._id, count: u.count })),
+        mostVisitedPages: mostVisitedPages.map(p => ({ page: p.page, views: p.views }))
       }
     };
   }
