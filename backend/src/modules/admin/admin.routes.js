@@ -20,5 +20,9 @@ router.get('/pathways', adminController.getPathways);
 router.get('/pathways/:id', adminController.getPathwayDetail);
 router.patch('/pathways/:id/flag', adminController.flagPathway);
 router.delete('/pathways/:id', adminController.deletePathway);
+router.get('/hubs', adminController.getHubs);
+router.get('/hubs/:id', adminController.getHubDetail);
+router.patch('/hubs/:id/flag', adminController.flagHub);
+router.delete('/hubs/:id', adminController.deleteHub);
 
 module.exports = router;

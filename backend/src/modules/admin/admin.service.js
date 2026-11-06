@@ -663,6 +663,124 @@ class AdminService {
     if (!resource) throw new Error('Resource not found');
     return { message: 'Resource deleted' };
   }
+
+  async getHubsAdmin(query = {}) {
+    const page = parseInt(query.page) || 1;
+    const limit = Math.min(parseInt(query.limit) || 20, 100);
+    const skip = (page - 1) * limit;
+
+    const status = query.status;
+    const industry = query.industry;
+    const location = query.location;
+    const search = query.search?.trim();
+
+    const match = { isDeleted: false };
+    if (status) match.status = status;
+    if (industry) match.industry = industry;
+    if (location) match.applicableLocation = { $regex: location, $options: 'i' };
+    if (search) match.name = { $regex: search, $options: 'i' };
+
+    const [stats, hubsData] = await Promise.all([
+      Promise.all([
+        Hub.countDocuments({ isDeleted: false }),
+        Hub.aggregate([{ $match: { isDeleted: false } }, { $group: { _id: null, total: { $sum: '$viewCount' } } }])
+      ]),
+      (async () => {
+        const pipeline = [
+          { $match: match },
+          { $sort: { createdAt: -1 } },
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'owner',
+              foreignField: '_id',
+              as: 'creator',
+              pipeline: [{ $project: { name: 1, avatar: 1 } }]
+            }
+          },
+          { $unwind: { path: '$creator', preserveNullAndEmptyArrays: true } },
+          {
+            $addFields: {
+              resourcesCount: { $size: { $ifNull: ['$resources', []] } },
+              pathwaysCount: { $size: { $ifNull: ['$pathways', []] } }
+            }
+          },
+          {
+            $project: {
+              _id: 1,
+              name: 1,
+              industry: 1,
+              applicableLocation: 1,
+              status: 1,
+              viewCount: 1,
+              resourcesCount: 1,
+              pathwaysCount: 1,
+              creatorName: '$creator.name',
+              creatorAvatar: '$creator.avatar'
+            }
+          }
+        ];
+        const [items, total] = await Promise.all([
+          Hub.aggregate(pipeline),
+          Hub.countDocuments(match)
+        ]);
+        return { items, total };
+      })()
+    ]);
+
+    const [totalHubs, viewAgg] = stats;
+    const totalHubVisit = viewAgg[0]?.total || 0;
+    const { items, total } = hubsData;
+
+    const hubsFormatted = items.map(h => ({
+      _id: h._id,
+      name: h.name,
+      creator: { name: h.creatorName, avatar: h.creatorAvatar },
+      industry: h.industry,
+      location: h.applicableLocation,
+      status: h.status,
+      views: h.viewCount,
+      resources: h.resourcesCount,
+      pathways: h.pathwaysCount
+    }));
+
+    return {
+      stats: {
+        totalHubs,
+        totalHubVisit
+      },
+      hubs: hubsFormatted,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async getHubDetail(id) {
+    const hub = await Hub.findOne({ _id: id, isDeleted: false }).populate('owner', 'name avatar email');
+    if (!hub) throw new Error('Hub not found');
+    return hub;
+  }
+
+  async flagHub(id, isFlagged) {
+    if (typeof isFlagged !== 'boolean') {
+      throw new Error('isFlagged boolean required');
+    }
+    const hub = await Hub.findByIdAndUpdate(id, { isFlagged }, { new: true });
+    if (!hub) throw new Error('Hub not found');
+    return hub;
+  }
+
+  async deleteHub(id) {
+    const hub = await Hub.findByIdAndUpdate(id, { isDeleted: true, deletedAt: new Date() }, { new: true });
+    if (!hub) throw new Error('Hub not found');
+    return { message: 'Hub deleted' };
+  }
 }
 
 module.exports = new AdminService();

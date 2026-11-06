@@ -75,6 +75,26 @@ class AdminController {
     const data = await adminService.deletePathway(req.params.id);
     res.status(200).json({ success: true, data });
   });
+
+  getHubs = asyncHandler(async (req, res) => {
+    const data = await adminService.getHubsAdmin(req.query);
+    res.status(200).json({ success: true, data });
+  });
+
+  getHubDetail = asyncHandler(async (req, res) => {
+    const data = await adminService.getHubDetail(req.params.id);
+    res.status(200).json({ success: true, data });
+  });
+
+  flagHub = asyncHandler(async (req, res) => {
+    const data = await adminService.flagHub(req.params.id, req.body?.isFlagged);
+    res.status(200).json({ success: true, data });
+  });
+
+  deleteHub = asyncHandler(async (req, res) => {
+    const data = await adminService.deleteHub(req.params.id);
+    res.status(200).json({ success: true, data });
+  });
 }
 
 module.exports = new AdminController();

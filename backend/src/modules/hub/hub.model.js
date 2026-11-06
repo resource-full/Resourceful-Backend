@@ -52,11 +52,19 @@ const hubSchema = new mongoose.Schema({
     default: 'draft'
   },
   publishedAt: Date,
+  viewCount: {
+    type: Number,
+    default: 0
+  },
   isDeleted: {
     type: Boolean,
     default: false
   },
-  deletedAt: Date
+  deletedAt: Date,
+  isFlagged: {
+    type: Boolean,
+    default: false
+  }
 }, {
   timestamps: {
     currentTime: () => moment().tz('Africa/Lagos').toDate()
