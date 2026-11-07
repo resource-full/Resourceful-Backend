@@ -6,6 +6,7 @@ const Hub = require('../hub/hub.model');
 const Payment = require('../payment/payment.model');
 const Interaction = require('../interaction/interaction.model');
 const SearchQuery = require('../search/search.model');
+const Payout = require('../payout/payout.model');
 
 class AdminService {
   startOfDay(date = new Date()) {
@@ -780,6 +781,111 @@ class AdminService {
     const hub = await Hub.findByIdAndUpdate(id, { isDeleted: true, deletedAt: new Date() }, { new: true });
     if (!hub) throw new Error('Hub not found');
     return { message: 'Hub deleted' };
+  }
+
+  async getMarketplaceAdmin(query = {}) {
+    const page = parseInt(query.page) || 1;
+    const limit = Math.min(parseInt(query.limit) || 20, 100);
+    const skip = (page - 1) * limit;
+
+    const status = query.status;
+    const industry = query.industry;
+    const location = query.location;
+    const search = query.search?.trim();
+    const tab = query.tab || 'purchases';
+
+    // Stats
+    const [grossRevenueAgg, netRevenueAgg, creatorEarningsAgg, pendingPayouts, completedPayouts, totalPurchases] = await Promise.all([
+      Payment.aggregate([{ $match: { status: 'success' } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
+      Payment.aggregate([{ $match: { status: 'success' } }, { $group: { _id: null, total: { $sum: { $multiply: ['$amount', 0.9] } } } }]),
+      Payout.aggregate([{ $match: { status: 'completed' } }, { $group: { _id: null, total: { $sum: '$creatorNet' } } }]),
+      Payout.countDocuments({ status: 'pending' }),
+      Payout.countDocuments({ status: 'completed' }),
+      Payment.countDocuments({ status: 'success' })
+    ]);
+
+    const grossRevenue = grossRevenueAgg[0]?.total || 0;
+    const netRevenue = netRevenueAgg[0]?.total || 0;
+    const creatorEarnings = creatorEarningsAgg[0]?.total || 0;
+
+    // Purchases table
+    const purchasesMatch = { status: status || 'success' };
+    // We will filter by industry/location via lookup later, keep simple
+
+    const purchasesPipeline = [
+      { $match: { status: status || 'success' } },
+      { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'buyer', pipeline: [{ $project: { name: 1, email: 1 } }] } },
+      { $unwind: { path: '$buyer', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'resources',
+          let: { itemId: '$item', itemType: '$itemType' },
+          pipeline: [
+            { $match: { $expr: { $and: [{ $eq: ['$_id', '$$itemId'] }, { $eq: ['$isDeleted', false] }] } } },
+            { $project: { name: 1, industry: 1, applicableLocation: 1, owner: 1 } }
+          ],
+          as: 'itemResource'
+        }
+      },
+      {
+        $lookup: {
+          from: 'pathways',
+          let: { itemId: '$item', itemType: '$itemType' },
+          pipeline: [
+            { $match: { $expr: { $and: [{ $eq: ['$_id', '$$itemId'] }, { $eq: ['$isDeleted', false] }] } } },
+            { $project: { name: 1, industry: 1, applicableLocation: 1, author: 1 } }
+          ],
+          as: 'itemPathway'
+        }
+      },
+      {
+        $addFields: {
+          itemName: { $ifNull: [{ $arrayElemAt: ['$itemResource.name', 0] }, { $arrayElemAt: ['$itemPathway.name', 0] }] },
+          industry: { $ifNull: [{ $arrayElemAt: ['$itemResource.industry', 0] }, { $arrayElemAt: ['$itemPathway.industry', 0] }] },
+          applicableLocation: { $ifNull: [{ $arrayElemAt: ['$itemResource.applicableLocation', 0] }, { $arrayElemAt: ['$itemPathway.applicableLocation', 0] }] },
+          creatorId: { $ifNull: [{ $arrayElemAt: ['$itemResource.owner', 0] }, { $arrayElemAt: ['$itemPathway.author', 0] }] }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'creatorId',
+          foreignField: '_id',
+          as: 'creator',
+          pipeline: [{ $project: { name: 1 } }]
+        }
+      },
+      { $unwind: { path: '$creator', preserveNullAndEmptyArrays: true } },
+      { $addFields: { fee: { $multiply: ['$amount', 0.1] }, creatorNet: { $multiply: ['$amount', 0.9] } } },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit }
+    ];
+
+    const purchases = await Payment.aggregate(purchasesPipeline);
+
+    return {
+      stats: {
+        grossRevenue,
+        netRevenue,
+        creatorEarnings,
+        pendingPayouts,
+        completedPayouts,
+        totalPurchases
+      },
+      purchases: purchases.map(p => ({
+        buyer: p.buyer?.name || '',
+        resource: p.itemName || '',
+        creator: p.creator?.name || '',
+        amount: p.amount,
+        fee: p.fee,
+        creatorNet: p.creatorNet,
+        date: p.createdAt,
+        completion: p.status
+      })),
+      payoutRequests: [],
+      creatorEarningsTable: []
+    };
   }
 }
 

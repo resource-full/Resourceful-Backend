@@ -24,5 +24,6 @@ router.get('/hubs', adminController.getHubs);
 router.get('/hubs/:id', adminController.getHubDetail);
 router.patch('/hubs/:id/flag', adminController.flagHub);
 router.delete('/hubs/:id', adminController.deleteHub);
+router.get('/marketplace', adminController.getMarketplace);
 
 module.exports = router;

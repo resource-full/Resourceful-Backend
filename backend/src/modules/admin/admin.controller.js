@@ -95,6 +95,11 @@ class AdminController {
     const data = await adminService.deleteHub(req.params.id);
     res.status(200).json({ success: true, data });
   });
+
+  getMarketplace = asyncHandler(async (req, res) => {
+    const data = await adminService.getMarketplaceAdmin(req.query);
+    res.status(200).json({ success: true, data });
+  });
 }
 
 module.exports = new AdminController();
