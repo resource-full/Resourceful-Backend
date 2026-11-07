@@ -809,9 +809,6 @@ class AdminService {
     const creatorEarnings = creatorEarningsAgg[0]?.total || 0;
 
     // Purchases table
-    const purchasesMatch = { status: status || 'success' };
-    // We will filter by industry/location via lookup later, keep simple
-
     const purchasesPipeline = [
       { $match: { status: status || 'success' } },
       { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'buyer', pipeline: [{ $project: { name: 1, email: 1 } }] } },
@@ -864,6 +861,57 @@ class AdminService {
 
     const purchases = await Payment.aggregate(purchasesPipeline);
 
+    // Payout Requests table
+    const payoutMatch = {};
+    if (status) payoutMatch.status = status;
+
+    const payoutPipeline = [
+      { $match: payoutMatch },
+      { $lookup: { from: 'users', localField: 'creator', foreignField: '_id', as: 'creatorUser', pipeline: [{ $project: { name: 1, email: 1 } }] } },
+      { $unwind: { path: '$creatorUser', preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: 'payments', localField: 'payment', foreignField: '_id', as: 'paymentDoc' } },
+      { $unwind: { path: '$paymentDoc', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'resources',
+          let: { itemId: '$paymentDoc.item', itemType: '$paymentDoc.itemType' },
+          pipeline: [
+            { $match: { $expr: { $and: [{ $eq: ['$_id', '$$itemId'] }, { $eq: ['$itemType', 'Resource'] }] } } },
+            { $project: { name: 1, industry: 1, applicableLocation: 1 } }
+          ],
+          as: 'itemResource'
+        }
+      },
+      { $unwind: { path: '$itemResource', preserveNullAndEmptyArrays: true } },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit }
+    ];
+
+    const payoutRequestsRaw = await Payout.aggregate(payoutPipeline);
+
+    // Creator Earnings table
+    const earningsPipeline = [
+      { $match: { status: { $in: ['completed', 'pending'] } } },
+      {
+        $group: {
+          _id: '$creator',
+          totalEarnings: { $sum: '$creatorNet' },
+          totalAmount: { $sum: '$amount' },
+          payoutsCount: { $sum: 1 },
+          pendingCount: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
+          completedCount: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } }
+        }
+      },
+      { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'creatorUser', pipeline: [{ $project: { name: 1, email: 1 } }] } },
+      { $unwind: { path: '$creatorUser', preserveNullAndEmptyArrays: true } },
+      { $sort: { totalEarnings: -1 } },
+      { $skip: skip },
+      { $limit: limit }
+    ];
+
+    const creatorEarningsRaw = await Payout.aggregate(earningsPipeline);
+
     return {
       stats: {
         grossRevenue,
@@ -883,8 +931,23 @@ class AdminService {
         date: p.createdAt,
         completion: p.status
       })),
-      payoutRequests: [],
-      creatorEarningsTable: []
+      payoutRequests: payoutRequestsRaw.map(p => ({
+        creator: p.creatorUser?.name || '',
+        resource: p.itemResource?.name || '',
+        amount: p.amount,
+        fee: p.fee || 0,
+        creatorNet: p.creatorNet,
+        date: p.createdAt,
+        status: p.status
+      })),
+      creatorEarningsTable: creatorEarningsRaw.map(e => ({
+        creator: e.creatorUser?.name || '',
+        totalEarnings: e.totalEarnings,
+        totalAmount: e.totalAmount,
+        payoutsCount: e.payoutsCount,
+        pendingCount: e.pendingCount,
+        completedCount: e.completedCount
+      }))
     };
   }
 }
