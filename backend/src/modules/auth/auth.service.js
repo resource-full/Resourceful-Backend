@@ -336,22 +336,42 @@ class AuthService {
       throw new ApiError(404, 'User not found');
     }
     
-    const { step, data } = stepData;
+    const { step, data, profile, goals } = stepData;
+    let payload = data || profile || goals || {};
     
     switch (step) {
       case 1:
-        if (data.location) user.location = data.location;
-        if (data.professionalExperience) user.professionalExperience = data.professionalExperience;
-        if (data.currentRole) user.currentRole = data.currentRole;
-        if (data.industry) user.industry = data.industry;
-        if (data.roleLocation) user.roleLocation = data.roleLocation;
-        if (data.skills) user.skills = data.skills;
+        // Normalize arrays to comma-separated strings
+        const normLocation = Array.isArray(payload.location) ? payload.location.join(', ') : payload.location;
+        const normIndustry = Array.isArray(payload.industry) ? payload.industry.join(', ') : payload.industry;
+        const normRoleLocation = Array.isArray(payload.roleLocation) ? payload.roleLocation.join(', ') : payload.roleLocation;
+        const normSkills = Array.isArray(payload.skills) ? payload.skills : payload.skills;
+
+        if (normLocation) user.location = normLocation;
+        // Map experienceLevel -> professionalExperience, normalize Entry Level case
+        if (payload.experienceLevel || payload.professionalExperience) {
+          let exp = payload.experienceLevel || payload.professionalExperience;
+          if (typeof exp === 'string') {
+            exp = exp.replace('Entry Level', 'Entry level');
+          }
+          user.professionalExperience = exp;
+        }
+        if (payload.currentRole) user.currentRole = payload.currentRole;
+        if (normIndustry) user.industry = normIndustry;
+        if (normRoleLocation) user.roleLocation = normRoleLocation;
+        if (normSkills) user.skills = normSkills;
+        // Also map firstName/lastName from profile if present
+        if (payload.firstName) user.firstName = payload.firstName;
+        if (payload.lastName) user.lastName = payload.lastName;
         break;
         
       case 2:
-        if (data.primaryCareerGoal) user.primaryCareerGoal = data.primaryCareerGoal;
-        if (data.targetRoles) user.targetRoles = data.targetRoles;
-        if (data.goalReviewTimeline) user.goalReviewTimeline = data.goalReviewTimeline;
+        // Support both backend naming and frontend naming
+        const primaryGoal = payload.primaryCareerGoal || payload.primaryGoal;
+        const goalTimeline = payload.goalReviewTimeline || payload.goalTimeline;
+        if (primaryGoal) user.primaryCareerGoal = primaryGoal;
+        if (payload.targetRoles) user.targetRoles = payload.targetRoles;
+        if (goalTimeline) user.goalReviewTimeline = goalTimeline;
         break;
         
       default:
