@@ -29,7 +29,7 @@ class UserService {
       ? publicResources.reduce((sum, r) => sum + (r.confidenceScore || 0), 0) / publicResources.length
       : 0;
     
-    const userObj = user.toObject();
+    const userObj = { ...user };
     userObj.stats = {
       following: user.following.length,
       followers: user.followers.length,
@@ -193,7 +193,7 @@ class UserService {
       ? publicResources.reduce((sum, r) => sum + (r.confidenceScore || 0), 0) / publicResources.length
       : 0;
     
-    const userObj = user.toObject();
+    const userObj = { ...user };
     userObj.stats = {
       following: user.following ? user.following.length : 0,
       followers: user.followers ? user.followers.length : 0,
