@@ -327,7 +327,7 @@ async getResourceById(resourceId, userId = null) {
     const canDownload = resource.isFree || isOwner || isPurchased;
 
     return {
-      ...resource.toObject(),
+      ...resource,
       userInteractions,
       isPurchased,
       requiresPayment,
