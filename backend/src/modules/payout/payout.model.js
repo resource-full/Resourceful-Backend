@@ -26,4 +26,11 @@ const payoutSchema = new mongoose.Schema({
   }
 });
 
+// Indexes for efficient payout queries
+payoutSchema.index({ creator: 1 });
+payoutSchema.index({ payment: 1 });
+payoutSchema.index({ status: 1 });
+payoutSchema.index({ createdAt: -1 });
+payoutSchema.index({ creator: 1, status: 1 });
+
 module.exports = mongoose.model('Payout', payoutSchema);

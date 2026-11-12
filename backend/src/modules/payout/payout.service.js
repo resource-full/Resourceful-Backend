@@ -32,7 +32,14 @@ class PayoutService {
     const [payouts, total] = await Promise.all([
       Payout.find(match)
         .populate('creator', 'name email avatar')
-        .populate('payment', 'reference amount status itemType item')
+        .populate({
+          path: 'payment',
+          select: 'reference amount status itemType item user',
+          populate: [
+            { path: 'user', select: 'name email avatar' }, // buyer
+            { path: 'item', refPath: 'itemType', select: 'name industry price currency status' }, // resource or pathway
+          ],
+        })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -94,7 +101,16 @@ class PayoutService {
       payoutId,
       { status },
       { new: true }
-    ).populate('creator', 'name email avatar');
+    )
+      .populate('creator', 'name email avatar')
+      .populate({
+        path: 'payment',
+        select: 'reference amount status itemType item user',
+        populate: [
+          { path: 'user', select: 'name email avatar' },
+          { path: 'item', refPath: 'itemType', select: 'name industry price currency status' },
+        ],
+      });
 
     if (!payout) {
       throw new ApiError(404, 'Payout not found');
@@ -107,7 +123,14 @@ class PayoutService {
   async getPayoutById(payoutId) {
     const payout = await Payout.findById(payoutId)
       .populate('creator', 'name email avatar')
-      .populate('payment', 'reference amount status itemType item');
+      .populate({
+        path: 'payment',
+        select: 'reference amount status itemType item user',
+        populate: [
+          { path: 'user', select: 'name email avatar' },
+          { path: 'item', refPath: 'itemType', select: 'name industry price currency status' },
+        ],
+      });
 
     if (!payout) {
       throw new ApiError(404, 'Payout not found');
