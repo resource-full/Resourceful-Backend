@@ -16,7 +16,7 @@
 ## Files Changed
 
 ### New Files Created:
-1. **src/services/email.service.js** - Email service with nodemailer integration
+1. **src/services/email.service.js** - Email service with Resend integration
 2. **EMAIL_CONFIG.md** - Configuration documentation
 3. **PASSWORD_RESET_FIX_SUMMARY.md** - This summary
 
@@ -27,20 +27,16 @@
 4. **.env.example** - Added email configuration template
 
 ### Dependencies Added:
-- **nodemailer** - Email sending library
+- **resend** - Email sending library (replaces nodemailer)
 
-## Environment Variables Required (Render Deployment)
+## Environment Variables Required
 
-**MANDATORY - Must be set in Render for production:**
+**MANDATORY - Must be set for production:**
 
 ```bash
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-SMTP_FROM=noreply@resourcefull.com
-FRONTEND_DOMAIN=https://resourcefull-v2.vercel.app
+RESEND_API_KEY=re_your_resend_api_key_here
+SMTP_FROM=noreply@yourdomain.com
+FRONTEND_DOMAIN=https://your-frontend-domain.com
 ```
 
 **Optional:**
@@ -109,7 +105,7 @@ RETURN_RESET_LINK_IN_RESPONSE=false  # Development only, default false
 ## Token Security
 
 ### Generation:
-- **Cryptographically secure**: Uses `crypto.randomBytes(32)` 
+- **Cryptographically secure**: Uses `crypto.randomBytes(32)`
 - **Length**: 64 hex characters
 - **Storage**: Only SHA-256 hash stored in database
 - **Never logged**: Tokens not logged in plaintext
@@ -178,38 +174,19 @@ The password reset email includes:
 
 1. **Email existence**: Endpoint doesn't reveal if email exists
 2. **Token handling**: Tokens never logged in plaintext
-3. **Secret protection**: SMTP passwords not logged
+3. **Secret protection**: API keys not logged
 4. **Error messages**: Generic messages prevent information leakage
 5. **Production safety**: Fails clearly if email not configured
 6. **Development safety**: RETURN_RESET_LINK_IN_RESPONSE defaults to false
 
-## Render Deployment Checklist
+## Deployment Checklist
 
-Before deploying to Render:
+Before deploying:
 
-- [ ] Set SMTP_HOST in Render environment variables
-- [ ] Set SMTP_PORT in Render environment variables
-- [ ] Set SMTP_SECURE in Render environment variables
-- [ ] Set SMTP_USER in Render environment variables
-- [ ] Set SMTP_PASS in Render environment variables (use app password)
-- [ ] Set SMTP_FROM in Render environment variables
-- [ ] Set FRONTEND_DOMAIN in Render environment variables
+- [ ] Set RESEND_API_KEY in environment variables
+- [ ] Set SMTP_FROM in environment variables
+- [ ] Set FRONTEND_DOMAIN in environment variables
 - [ ] Redeploy application after adding variables
 - [ ] Test forgot password flow with real email
 - [ ] Verify emails are delivered
 - [ ] Check logs for errors
-
-**Note**: Yes, the application needs redeployment after environment variable changes. Render reads environment variables at startup.
-
-## Remaining Configuration Needed on Render
-
-You need to configure these environment variables in Render:
-1. SMTP_HOST
-2. SMTP_PORT
-3. SMTP_SECURE
-4. SMTP_USER
-5. SMTP_PASS (app-specific password, not regular password)
-6. SMTP_FROM
-7. FRONTEND_DOMAIN
-
-All other variables (MongoDB, JWT, OAuth, etc.) are already configured.

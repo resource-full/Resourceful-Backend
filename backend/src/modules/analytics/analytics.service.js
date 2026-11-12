@@ -281,7 +281,7 @@ class AnalyticsService {
 
     const match = { _id: { $in: objectIds } };
     if (search) {
-      match.title = { $regex: search, $options: 'i' };
+      match.name = { $regex: search, $options: 'i' };
     }
 
     const sort = {};
@@ -303,7 +303,7 @@ class AnalyticsService {
         .sort(sort)
         .skip(skip)
         .limit(parseInt(limit))
-        .select('title category downloadCount viewCount confidenceScore isFree price currency'),
+        .select('name industry downloadCount viewCount confidenceScore isFree price currency'),
       Resource.countDocuments(match),
     ]);
 
@@ -316,8 +316,8 @@ class AnalyticsService {
 
     const data = resources.map(r => ({
       type: 'Resource',
-      name: r.title,
-      category: r.category,
+      name: r.name,
+      category: r.industry,
       earnings: earningsMap.get(r._id.toString()) || 0,
       downloads: r.downloadCount || 0,
       saves: savesMap.get(r._id.toString()) || 0,

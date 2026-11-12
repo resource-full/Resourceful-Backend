@@ -35,7 +35,14 @@ const handlePaystackWebhook = async (req, res) => {
 
     res.sendStatus(200);
   } catch (error) {
-    console.error('Webhook processing error:', error);
+    // Log with event context for debugging, but still return 200 to prevent
+    // Paystack from retrying a permanently failing webhook
+    console.error(
+      `[Webhook] Error processing event "${event?.event}" reference "${
+        event?.data?.reference
+      }":`,
+      error.message
+    );
     res.sendStatus(200);
   }
 };
