@@ -87,7 +87,17 @@ const userSchema = new mongoose.Schema({
   // Professional Information (from onboarding)
   professionalExperience: {
     type: String,
-    enum: ['Student', 'Entry level', 'Mid Level', 'Senior', ''],
+    enum: [
+      'Student',
+      'Entry level',
+      'Mid Level',
+      'Senior',
+      'Lead',
+      'Manager',
+      'Director',
+      'Executive',
+      ''
+    ],
     default: ''
   },
   currentRole: {
@@ -125,7 +135,39 @@ const userSchema = new mongoose.Schema({
   },
   industry: {
     type: String,
-    enum: ['Law', 'Agriculture', 'Nursing', 'Medicine', 'Software Development', ''],
+    enum: [
+      'Law',
+      'Agriculture',
+      'Nursing',
+      'Medicine',
+      'Software Development',
+      'Education',
+      'Finance',
+      'Healthcare',
+      'Marketing',
+      'Engineering',
+      'Construction',
+      'Real Estate',
+      'Transportation',
+      'Hospitality',
+      'Entertainment',
+      'Media',
+      'Telecommunications',
+      'Energy',
+      'Manufacturing',
+      'Retail',
+      'Government',
+      'Non-profit',
+      'Consulting',
+      'Design',
+      'Research',
+      'Technology',
+      'Fashion',
+      'Food & Beverage',
+      'Sports',
+      'Environmental',
+      ''
+    ],
     default: ''
   },
   location: {
