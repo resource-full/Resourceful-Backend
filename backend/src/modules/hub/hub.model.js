@@ -48,7 +48,7 @@ const hubSchema = new mongoose.Schema({
   }],
   status: {
     type: String,
-    enum: ['draft', 'public'],
+    enum: ['draft', 'private', 'public'],
     default: 'draft'
   },
   publishedAt: Date,

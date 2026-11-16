@@ -422,7 +422,7 @@ async getPathwayById(pathwayId, userId = null) {
       throw new ApiError(403, 'Only the author can change pathway status');
     }
     
-    if (!['draft', 'public'].includes(newStatus)) {
+    if (!['draft', 'private', 'public'].includes(newStatus)) {
       throw new ApiError(400, 'Invalid status');
     }
     

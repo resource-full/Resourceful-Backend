@@ -283,7 +283,7 @@ class HubService {
       throw new ApiError(403, 'Only the owner can change hub status');
     }
     
-    if (!['draft', 'public'].includes(newStatus)) {
+    if (!['draft', 'private', 'public'].includes(newStatus)) {
       throw new ApiError(400, 'Invalid status');
     }
     

@@ -89,7 +89,7 @@ const pathwaySchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['draft', 'public'],
+    enum: ['draft', 'private', 'public'],
     default: 'draft'
   },
   hub: {

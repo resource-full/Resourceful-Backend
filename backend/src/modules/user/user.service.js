@@ -46,6 +46,13 @@ class UserService {
       ...hubs.filter(h => h.status === 'draft').map(h => ({ ...h, itemType: 'Hub' })),
     ].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
+    // Combined "only me" (private) list across resources, pathways, and hubs
+    const onlyMe = [
+      ...resources.filter(r => r.status === 'private').map(r => ({ ...r, itemType: 'Resource' })),
+      ...pathways.filter(p => p.status === 'private').map(p => ({ ...p, itemType: 'Pathway' })),
+      ...hubs.filter(h => h.status === 'private').map(h => ({ ...h, itemType: 'Hub' })),
+    ].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
     const totalSold = await Payment.countDocuments({
       item: { $in: user.createdResources.map(r => r._id) },
       itemType: 'Resource',
@@ -63,6 +70,7 @@ class UserService {
       pathways,
       hubs,
       drafts,
+      onlyMe,
       stats: {
         following: user.following ? user.following.length : 0,
         followers: user.followers ? user.followers.length : 0,
@@ -70,6 +78,7 @@ class UserService {
         totalPathways: pathways.length,
         totalHubs: hubs.length,
         totalDrafts: drafts.length,
+        totalOnlyMe: onlyMe.length,
         totalSold,
         avgRelevancyScore: Math.round(avgRelevancyScore * 100) / 100
       }
