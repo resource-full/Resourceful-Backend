@@ -1,5 +1,7 @@
 const User = require('./user.model');
 const Resource = require('../resource/resource.model');
+const Pathway = require('../pathway/pathway.model');
+const Hub = require('../hub/hub.model');
 const Payment = require('../payment/payment.model');
 const FileUploadService = require('../../services/fileUpload.service');
 const ApiError = require('../../utils/apiError');
@@ -8,37 +10,70 @@ class UserService {
   async getProfile(userId) {
     const user = await User.findById(userId)
       .select('-__v -password')
-      .populate({ path: 'savedResources', select: 'name coverPhoto industry peerRatings confidenceScore', options: { limit: 100 } })
+      .populate({ path: 'savedResources', select: 'name coverPhoto industry peerRatings confidenceScore status', options: { limit: 100 } })
       .populate({ path: 'createdResources', select: 'name coverPhoto industry peerRatings confidenceScore status', options: { limit: 100 } })
       .populate({ path: 'followers', select: 'name email avatar username position', options: { limit: 100 } })
       .populate({ path: 'following', select: 'name email avatar username position', options: { limit: 100 } })
       .lean();
-    
+
     if (!user) {
       throw new ApiError(404, 'User not found');
     }
-    
+
+    // Parallel fetch of user-owned content (uses existing indexes: Resource.owner, Pathway.author, Hub.owner)
+    const [resources, pathways, hubs] = await Promise.all([
+      Resource.find({ owner: userId, isDeleted: false })
+        .select('name description coverPhoto industry experience applicableLocation isFree price currency peerRatings confidenceScore status viewCount downloadCount createdAt updatedAt')
+        .sort({ updatedAt: -1 })
+        .limit(50)
+        .lean(),
+      Pathway.find({ author: userId, isDeleted: false })
+        .select('name description blocks industry experience applicableLocation isFree price currency rating viewCount status createdAt updatedAt')
+        .sort({ updatedAt: -1 })
+        .limit(50)
+        .lean(),
+      Hub.find({ owner: userId, isDeleted: false })
+        .select('name description applicableLocation experience industry status viewCount resources pathways createdAt updatedAt')
+        .sort({ updatedAt: -1 })
+        .limit(50)
+        .lean(),
+    ]);
+
+    // Combined drafts list across resources, pathways, and hubs
+    const drafts = [
+      ...resources.filter(r => r.status === 'draft').map(r => ({ ...r, itemType: 'Resource' })),
+      ...pathways.filter(p => p.status === 'draft').map(p => ({ ...p, itemType: 'Pathway' })),
+      ...hubs.filter(h => h.status === 'draft').map(h => ({ ...h, itemType: 'Hub' })),
+    ].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
     const totalSold = await Payment.countDocuments({
       item: { $in: user.createdResources.map(r => r._id) },
       itemType: 'Resource',
       status: 'success'
     });
-    
-    const publicResources = user.createdResources.filter(r => r.status === 'public');
+
+    const publicResources = resources.filter(r => r.status === 'public');
     const avgRelevancyScore = publicResources.length > 0
       ? publicResources.reduce((sum, r) => sum + (r.confidenceScore || 0), 0) / publicResources.length
       : 0;
-    
-    const userObj = { ...user };
-    userObj.stats = {
-      following: user.following.length,
-      followers: user.followers.length,
-      totalCreated: user.createdResources.length,
-      totalSold,
-      avgRelevancyScore: Math.round(avgRelevancyScore * 100) / 100
+
+    return {
+      ...user,
+      resources,
+      pathways,
+      hubs,
+      drafts,
+      stats: {
+        following: user.following ? user.following.length : 0,
+        followers: user.followers ? user.followers.length : 0,
+        totalCreated: resources.length,
+        totalPathways: pathways.length,
+        totalHubs: hubs.length,
+        totalDrafts: drafts.length,
+        totalSold,
+        avgRelevancyScore: Math.round(avgRelevancyScore * 100) / 100
+      }
     };
-    
-    return userObj;
   }
   
   async updateProfile(userId, updateData, files) {
