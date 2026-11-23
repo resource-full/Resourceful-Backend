@@ -80,6 +80,16 @@ class HubController {
     const hub = await hubService.removePathwayFromHub(req.params.id, req.params.pathwayId, req.user._id);
     res.status(200).json({ success: true, data: hub });
   });
+
+  saveHub = asyncHandler(async (req, res) => {
+    const result = await hubService.saveHub(req.params.id, req.user._id);
+    res.status(200).json({ success: true, data: result });
+  });
+
+  unsaveHub = asyncHandler(async (req, res) => {
+    const result = await hubService.unsaveHub(req.params.id, req.user._id);
+    res.status(200).json({ success: true, data: result });
+  });
 }
 
 module.exports = new HubController();

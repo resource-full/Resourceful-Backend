@@ -23,5 +23,7 @@ router.post('/:id/resources/:resourceId', hubController.addResourceToHub);
 router.delete('/:id/resources/:resourceId', hubController.removeResourceFromHub);
 router.post('/:id/pathways/:pathwayId', hubController.addPathwayToHub);
 router.delete('/:id/pathways/:pathwayId', hubController.removePathwayFromHub);
+router.post('/:id/save', hubController.saveHub);
+router.delete('/:id/save', hubController.unsaveHub);
 
 module.exports = router;

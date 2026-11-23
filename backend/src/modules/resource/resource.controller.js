@@ -204,6 +204,30 @@ class ResourceController {
       }
     });
   });
+
+  saveResource = asyncHandler(async (req, res) => {
+    const result = await resourceService.saveResource(
+      req.params.id,
+      req.user._id
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  });
+
+  unsaveResource = asyncHandler(async (req, res) => {
+    const result = await resourceService.unsaveResource(
+      req.params.id,
+      req.user._id
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  });
 }
 
 module.exports = new ResourceController();

@@ -410,6 +410,54 @@ async getPathwayById(pathwayId, userId = null) {
     
     return { message: 'Pathway deleted successfully' };
   }
+
+  async savePathway(pathwayId, userId) {
+    const pathway = await Pathway.findById(pathwayId);
+    
+    if (!pathway || pathway.isDeleted) {
+      throw new ApiError(404, 'Pathway not found');
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+    
+    const isSaved = user.savedPathways.some(id => id.toString() === pathwayId);
+    
+    if (isSaved) {
+      throw new ApiError(400, 'Pathway already saved');
+    }
+    
+    user.savedPathways.push(pathwayId);
+    await user.save();
+    
+    return { message: 'Pathway saved successfully', saved: true };
+  }
+
+  async unsavePathway(pathwayId, userId) {
+    const pathway = await Pathway.findById(pathwayId);
+    
+    if (!pathway || pathway.isDeleted) {
+      throw new ApiError(404, 'Pathway not found');
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+    
+    const isSaved = user.savedPathways.some(id => id.toString() === pathwayId);
+    
+    if (!isSaved) {
+      throw new ApiError(400, 'Pathway not saved');
+    }
+    
+    user.savedPathways = user.savedPathways.filter(id => id.toString() !== pathwayId);
+    await user.save();
+    
+    return { message: 'Pathway unsaved successfully', saved: false };
+  }
   
   async changePathwayStatus(pathwayId, userId, newStatus) {
     const pathway = await Pathway.findById(pathwayId);

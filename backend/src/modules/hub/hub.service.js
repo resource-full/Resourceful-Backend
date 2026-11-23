@@ -271,6 +271,54 @@ class HubService {
     
     return { message: 'Hub deleted successfully' };
   }
+
+  async saveHub(hubId, userId) {
+    const hub = await Hub.findById(hubId);
+    
+    if (!hub || hub.isDeleted) {
+      throw new ApiError(404, 'Hub not found');
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+    
+    const isSaved = user.savedHubs.some(id => id.toString() === hubId);
+    
+    if (isSaved) {
+      throw new ApiError(400, 'Hub already saved');
+    }
+    
+    user.savedHubs.push(hubId);
+    await user.save();
+    
+    return { message: 'Hub saved successfully', saved: true };
+  }
+
+  async unsaveHub(hubId, userId) {
+    const hub = await Hub.findById(hubId);
+    
+    if (!hub || hub.isDeleted) {
+      throw new ApiError(404, 'Hub not found');
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+    
+    const isSaved = user.savedHubs.some(id => id.toString() === hubId);
+    
+    if (!isSaved) {
+      throw new ApiError(400, 'Hub not saved');
+    }
+    
+    user.savedHubs = user.savedHubs.filter(id => id.toString() !== hubId);
+    await user.save();
+    
+    return { message: 'Hub unsaved successfully', saved: false };
+  }
   
   async changeHubStatus(hubId, userId, newStatus) {
     const hub = await Hub.findById(hubId);

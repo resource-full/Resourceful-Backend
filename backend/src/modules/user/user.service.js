@@ -11,6 +11,8 @@ class UserService {
     const user = await User.findById(userId)
       .select('-__v -password')
       .populate({ path: 'savedResources', select: 'name coverPhoto industry peerRatings confidenceScore status', options: { limit: 100 } })
+      .populate({ path: 'savedPathways', select: 'name description blocks industry experience applicableLocation isFree price currency rating viewCount status createdAt updatedAt', options: { limit: 100 } })
+      .populate({ path: 'savedHubs', select: 'name description applicableLocation experience industry status viewCount resources pathways createdAt updatedAt', options: { limit: 100 } })
       .populate({ path: 'createdResources', select: 'name coverPhoto industry peerRatings confidenceScore status', options: { limit: 100 } })
       .populate({ path: 'followers', select: 'name email avatar username position', options: { limit: 100 } })
       .populate({ path: 'following', select: 'name email avatar username position', options: { limit: 100 } })
@@ -69,6 +71,9 @@ class UserService {
       resources,
       pathways,
       hubs,
+      savedResources: user.savedResources,
+      savedPathways: user.savedPathways,
+      savedHubs: user.savedHubs,
       drafts,
       onlyMe,
       stats: {
@@ -93,6 +98,8 @@ class UserService {
     delete updateData.following;
     delete updateData.createdResources;
     delete updateData.savedResources;
+    delete updateData.savedPathways;
+    delete updateData.savedHubs;
     
     // Check username uniqueness
     if (updateData.username) {

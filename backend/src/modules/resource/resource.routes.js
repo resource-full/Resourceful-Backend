@@ -28,5 +28,7 @@ router.post('/:id/collaborators', resourceController.addCollaborator);
 router.delete('/:id/collaborators', resourceController.removeCollaborator);
 router.post('/:id/rate', resourceController.rateResource);
 router.get('/:id/download', resourceController.downloadResource);
+router.post('/:id/save', resourceController.saveResource);
+router.delete('/:id/save', resourceController.unsaveResource);
 
 module.exports = router;

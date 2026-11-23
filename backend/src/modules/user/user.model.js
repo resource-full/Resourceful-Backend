@@ -229,6 +229,14 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Resource'
   }],
+  savedPathways: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Pathway'
+  }],
+  savedHubs: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Hub'
+  }],
   createdResources: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Resource'

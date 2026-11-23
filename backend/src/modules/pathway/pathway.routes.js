@@ -22,5 +22,7 @@ router.patch('/:id/status', pathwayController.changePathwayStatus);
 router.post('/:id/blocks', pathwayController.addBlock);
 router.delete('/:id/blocks/:blockId', pathwayController.removeBlock);
 router.put('/:id/blocks/reorder', pathwayController.reorderBlocks);
+router.post('/:id/save', pathwayController.savePathway);
+router.delete('/:id/save', pathwayController.unsavePathway);
 
 module.exports = router;

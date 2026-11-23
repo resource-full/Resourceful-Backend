@@ -145,6 +145,30 @@ class PathwayController {
       data: pathway
     });
   });
+
+  savePathway = asyncHandler(async (req, res) => {
+    const result = await pathwayService.savePathway(
+      req.params.id,
+      req.user._id
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  });
+
+  unsavePathway = asyncHandler(async (req, res) => {
+    const result = await pathwayService.unsavePathway(
+      req.params.id,
+      req.user._id
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  });
 }
 
 module.exports = new PathwayController();

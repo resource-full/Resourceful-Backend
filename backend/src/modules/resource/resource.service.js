@@ -699,6 +699,54 @@ async getResourceById(resourceId, userId = null) {
       }
     };
   }
+
+  async saveResource(resourceId, userId) {
+    const resource = await Resource.findById(resourceId);
+    
+    if (!resource || resource.isDeleted) {
+      throw new ApiError(404, 'Resource not found');
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+    
+    const isSaved = user.savedResources.some(id => id.toString() === resourceId);
+    
+    if (isSaved) {
+      throw new ApiError(400, 'Resource already saved');
+    }
+    
+    user.savedResources.push(resourceId);
+    await user.save();
+    
+    return { message: 'Resource saved successfully', saved: true };
+  }
+
+  async unsaveResource(resourceId, userId) {
+    const resource = await Resource.findById(resourceId);
+    
+    if (!resource || resource.isDeleted) {
+      throw new ApiError(404, 'Resource not found');
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+    
+    const isSaved = user.savedResources.some(id => id.toString() === resourceId);
+    
+    if (!isSaved) {
+      throw new ApiError(400, 'Resource not saved');
+    }
+    
+    user.savedResources = user.savedResources.filter(id => id.toString() !== resourceId);
+    await user.save();
+    
+    return { message: 'Resource unsaved successfully', saved: false };
+  }
   
   // Helper: Get owner ID whether populated or not
   getOwnerId(resource) {
