@@ -11,6 +11,15 @@ class UserController {
       data: user
     });
   });
+
+  getSavedItems = asyncHandler(async (req, res) => {
+    const result = await userService.getSavedItems(req.user._id);
+    
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  });
   
   updateProfile = asyncHandler(async (req, res) => {
     console.log('[updateProfile] req.body keys:', Object.keys(req.body));

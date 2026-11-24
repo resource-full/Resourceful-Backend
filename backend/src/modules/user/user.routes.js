@@ -19,6 +19,7 @@ router.use(protect);
 const uploadMiddleware = fileUploadService.getUserProfileUploadMiddleware();
 
 router.get('/profile', userController.getProfile);
+router.get('/saved', userController.getSavedItems);
 router.put('/profile', uploadMiddleware, userController.updateProfile);
 router.post('/follow/:userId', userController.followUser);
 router.post('/unfollow/:userId', userController.unfollowUser);

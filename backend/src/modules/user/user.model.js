@@ -393,5 +393,8 @@ userSchema.index({ name: 'text', email: 'text', skills: 'text' });
 userSchema.index({ createdAt: -1 });
 userSchema.index({ lastLogin: -1 });
 userSchema.index({ industry: 1 });
+userSchema.index({ savedResources: 1 });
+userSchema.index({ savedPathways: 1 });
+userSchema.index({ savedHubs: 1 });
 
 module.exports = mongoose.model('User', userSchema);

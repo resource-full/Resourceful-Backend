@@ -89,6 +89,25 @@ class UserService {
       }
     };
   }
+
+  async getSavedItems(userId) {
+    const user = await User.findById(userId)
+      .populate({ path: 'savedResources', select: 'name coverPhoto industry peerRatings confidenceScore status price currency applicableLocation experience viewCount downloadCount createdAt updatedAt', options: { limit: 100 } })
+      .populate({ path: 'savedPathways', select: 'name description blocks industry experience applicableLocation isFree price currency rating viewCount status createdAt updatedAt', options: { limit: 100 } })
+      .populate({ path: 'savedHubs', select: 'name description applicableLocation experience industry status viewCount resources pathways createdAt updatedAt', options: { limit: 100 } })
+      .lean();
+
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+
+    return {
+      savedResources: user.savedResources || [],
+      savedPathways: user.savedPathways || [],
+      savedHubs: user.savedHubs || [],
+      total: (user.savedResources || []).length + (user.savedPathways || []).length + (user.savedHubs || []).length
+    };
+  }
   
   async updateProfile(userId, updateData, files) {
     delete updateData.password;
